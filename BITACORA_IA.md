@@ -1,0 +1,4 @@
+Bitácora
+Semana 1 - Comenzamos leyendo la letra del documento e intentando crear el UML sin usar la IA, primero pensamos cómo sería el sistema de juego, sobres que se pueden comprar y que contienen cartas, las cuales son intercambiables con otros jugadores y también se pueden vender a los mismos.
+Consideramos distintas posibilidades para la temática, barajando la dificultad y nuestro entusiasmo por la misma, finalmente consiguiendo nuestra temática a realizar.
+Al tener el UML realizado por nosotros decidimos pasárselo a la IA para corroborar nuestras decisiones, en base a eso, decidimos agregar un par de cosas que nos mencionó. Luego, terminamos de decidir algunas cuestiones de diseño del juego. 

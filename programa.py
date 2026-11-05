@@ -86,8 +86,7 @@ def main() -> None:
     # Simulación perezosa: cuántos sobres hacen falta para completar la edición
     estacion = ReglasEconomia.estacion_de(hoy)
     print(f"Estación de hoy: {estacion.value}")
-    n = analisis.sobres_hasta_completar(SOBRE_COMUN, edicion, AzarReal(semilla=1))
-    print(f"Con sobres comunes, completar la edición llevó {n} sobres en esta simulación")
+    
 
 
 if __name__ == "__main__":

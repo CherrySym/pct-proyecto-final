@@ -1,4 +1,4 @@
-"""Catálogo: cartas, ediciones, ejemplares e insignias (todos inmutables)."""
+"""Catálogo: cartas, ediciones, ejemplares e insignias."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,7 +7,7 @@ from datetime import date
 from .comunes import Especie, Estacion, Rareza
 
 
-@dataclass(frozen=True)
+@dataclass
 class Carta:
     """Carta del catálogo. Lo que tiene un jugador es un Ejemplar de ella."""
     id_carta: int
@@ -18,7 +18,7 @@ class Carta:
     intercambiable: bool = True
 
 
-@dataclass(frozen=True)
+@dataclass
 class Edicion:
     """Colección de un año. Completarla primero da la insignia."""
     nombre: str
@@ -33,13 +33,13 @@ class Edicion:
         return tuple(c for c in self.cartas if c.rareza == rareza)
 
 
-@dataclass(frozen=True)
+@dataclass
 class Ejemplar:
     id_ejemplar: int
     carta: Carta
 
 
-@dataclass(frozen=True)
+@dataclass
 class Insignia:
     fecha_obtenida: date
     edicion: Edicion

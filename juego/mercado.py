@@ -102,7 +102,8 @@ class Mercado:
         if inter.emisor is inter.receptor:
             raise ErrorMercado("No se puede intercambiar con uno mismo")
         todos = list(inter.brinda) + list(inter.recibe)
-        if len(set(todos)) != len(todos):
+        ids = [e.id_ejemplar for e in todos]
+        if len(set(ids)) != len(ids):
             raise ErrorMercado("Un ejemplar aparece repetido en el intercambio")
         if not all(inter.emisor.tiene(e) for e in inter.brinda):
             raise ErrorMercado("El emisor no tiene todos los ejemplares que ofrece")

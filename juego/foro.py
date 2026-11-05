@@ -23,7 +23,7 @@ class Publicacion:
         self.precio_pedido = precio_pedido
 
 
-@dataclass(frozen=True)
+@dataclass
 class Oferta:
     jugador: Jugador
     monto: int

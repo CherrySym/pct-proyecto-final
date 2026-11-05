@@ -11,7 +11,7 @@ from .comunes import Azar, ErrorMercado, Rareza
 CARTAS_POR_SOBRE = 5
 
 
-@dataclass(frozen=True)
+@dataclass
 class TipoSobre:
     nombre: str
     precio: int
@@ -25,11 +25,10 @@ class TipoSobre:
         if abs(sum(self.probabilidades.values()) - 1) > 1e-9:
             raise ValueError("Las probabilidades deben sumar 1")
         # Copia de solo lectura: nadie puede cambiar las probabilidades después.
-        object.__setattr__(self, "probabilidades",
-                           MappingProxyType(dict(self.probabilidades)))
+        self.probabilidades = MappingProxyType(dict(self.probabilidades))
 
 
-@dataclass(frozen=True)
+@dataclass
 class Sobre:
     id_sobre: int
     tipo: TipoSobre

@@ -1,4 +1,4 @@
-"""Datos inmutables que describen operaciones: venta, intercambio y registro del historial."""
+"""Datos que describen operaciones: venta, intercambio y registro del historial."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,14 +7,14 @@ from .catalogo import Ejemplar
 from .jugador import Jugador
 
 
-@dataclass(frozen=True)
+@dataclass
 class Venta:
     vendedor: Jugador
     ejemplar: Ejemplar
     precio: int
 
 
-@dataclass(frozen=True)
+@dataclass
 class Intercambio:
     emisor: Jugador
     receptor: Jugador
@@ -22,7 +22,7 @@ class Intercambio:
     recibe: tuple  # ejemplares que da el receptor
 
 
-@dataclass(frozen=True)
+@dataclass
 class Operacion:
     tipo: str
     datos: dict

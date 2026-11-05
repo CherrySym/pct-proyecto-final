@@ -59,6 +59,21 @@ def valor_coleccion(ejemplares: Iterable[Ejemplar], estacion: Estacion) -> int:
     return sum(map(lambda e: ReglasEconomia.precio(e.carta, estacion), ejemplares))
 
 
+# ---------------------------------------------------------------- historial verificable
+
+def registro_operaciones(historial: Iterable) -> list:
+    """Convierte el historial en datos simples (listas, dicts, strings, números)
+    listos para guardar en JSON. No incluye las fotos del estado: el registro dice
+    qué pasó y en qué orden, sin copiar todos los datos de los jugadores."""
+    return [{"numero": n, "tipo": op.tipo, "datos": dict(op.datos)}
+            for n, op in enumerate(historial, start=1)]
+
+
+def contar_por_tipo(registro: Iterable[dict]) -> dict:
+    """{tipo de operación: cantidad}, para verificar un registro guardado."""
+    return reduce(lambda acc, r: {**acc, r["tipo"]: acc.get(r["tipo"], 0) + 1}, registro, {})
+
+
 # ---------------------------------------------------------------- criterios del foro
 # Fábricas de funciones (closures): cada una devuelve un criterio para Foro.buscar.
 

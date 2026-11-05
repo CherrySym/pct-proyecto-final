@@ -27,7 +27,7 @@ class Mercado:
         self._foro = foro if foro is not None else Foro()
         self._jugadores: list = []
         self._historial: list = []
-        self._ganador: Optional[Jugador] = None
+        self._premio_otorgado = False  # basta saber si ya se entregó, no hace falta guardar a quién
         self._ids_sobre = count(1)  # nunca se reinicia: los ids no se reutilizan
 
     @property
@@ -53,33 +53,42 @@ class Mercado:
 
     def _capturar(self) -> dict:
         return {"edicion": self._edicion,
-                "ganador": self._ganador,
+                "premio_otorgado": self._premio_otorgado,
                 "foro": self._foro._capturar(),
                 "jugadores": [(j, j._capturar()) for j in self._jugadores]}
 
     def _restaurar(self, estado: dict) -> None:
         self._edicion = estado["edicion"]
-        self._ganador = estado["ganador"]
+        self._premio_otorgado = estado["premio_otorgado"]
         self._foro._restaurar(estado["foro"])
         self._jugadores = [j for j, _ in estado["jugadores"]]
         for jugador, estado_jugador in estado["jugadores"]:
             jugador._restaurar(estado_jugador)
 
-    def _ejecutar(self, tipo: str, datos: dict, accion: Callable[[], T]) -> T:
-        """Función de orden superior: corre `accion` de forma atómica."""
+    def _ejecutar(self, tipo: str, datos: Callable[[], dict], accion: Callable[[], T]) -> T:
+        """Función de orden superior: corre `accion` de forma atómica.
+
+        - Si falla, restaura el estado anterior: una operación inválida no deja rastros.
+        - Un error de tipo inesperado (por ejemplo, None en lugar de un ejemplar) se
+          informa como ErrorMercado, con el error original encadenado.
+        - `datos` es una función: se evalúa recién cuando la operación salió bien,
+          así armar el registro nunca falla por culpa de una entrada inválida."""
         previo = self._capturar()
         try:
             resultado = accion()
-        except Exception:
-            self._restaurar(previo)  # una operación inválida no deja rastros
+        except ErrorMercado:
+            self._restaurar(previo)
             raise
-        self._historial.append(Operacion(tipo, datos, previo))
+        except (TypeError, AttributeError, ValueError) as error:
+            self._restaurar(previo)
+            raise ErrorMercado(f"Datos inválidos en {tipo}: {error}") from error
+        self._historial.append(Operacion(tipo, datos(), previo))
         return resultado
 
     def _verificar(self, *jugadores: Jugador) -> None:
         for j in jugadores:
-            if j not in self._jugadores:
-                raise ErrorMercado(f"{j.nickname} no está registrado")
+            if not isinstance(j, Jugador) or j not in self._jugadores:
+                raise ErrorMercado(f"{j!r} no es un jugador registrado")
 
     # --- pasos internos (validan primero, después modifican) ---
 
@@ -126,11 +135,13 @@ class Mercado:
 
     def registrar_jugador(self, jugador: Jugador) -> None:
         def accion():
+            if not isinstance(jugador, Jugador):
+                raise ErrorMercado(f"{jugador!r} no es un Jugador")
             if jugador in self._jugadores:
                 raise ErrorMercado("El jugador ya está registrado")
             self._jugadores.append(jugador)
             jugador._acreditar(POLEN_INICIAL)
-        self._ejecutar("registrar_jugador", {"jugador": jugador.nickname}, accion)
+        self._ejecutar("registrar_jugador", lambda: {"jugador": jugador.nickname}, accion)
 
     def comprar_sobre(self, jugador: Jugador, tipo: TipoSobre) -> Sobre:
         def accion():
@@ -140,18 +151,18 @@ class Mercado:
             jugador._agregar_sobre(sobre)
             return sobre
         return self._ejecutar("comprar_sobre",
-                              {"jugador": jugador.nickname, "tipo": tipo.nombre}, accion)
+                              lambda: {"jugador": jugador.nickname, "tipo": tipo.nombre}, accion)
 
     def abrir_sobre(self, jugador: Jugador, sobre: Sobre, azar: Azar) -> list:
         def accion():
             self._verificar(jugador)
             return jugador.abrir_sobre(sobre, azar)
         return self._ejecutar("abrir_sobre",
-                              {"jugador": jugador.nickname, "sobre": sobre.id_sobre}, accion)
+                              lambda: {"jugador": jugador.nickname, "sobre": sobre.id_sobre}, accion)
 
     def comprar_carta(self, venta: Venta, comprador: Jugador) -> None:
         self._ejecutar("comprar_carta",
-                       {"vendedor": venta.vendedor.nickname, "comprador": comprador.nickname,
+                       lambda: {"vendedor": venta.vendedor.nickname, "comprador": comprador.nickname,
                         "ejemplar": venta.ejemplar.id_ejemplar, "precio": venta.precio},
                        lambda: self._hacer_venta(venta, comprador))
 
@@ -165,12 +176,12 @@ class Mercado:
             self._foro._retirar_ejemplar(ejemplar)
             return pago
         return self._ejecutar("vender_al_mercado",
-                              {"jugador": jugador.nickname, "ejemplar": ejemplar.id_ejemplar,
+                              lambda: {"jugador": jugador.nickname, "ejemplar": ejemplar.id_ejemplar,
                                "fecha": fecha.isoformat()}, accion)
 
     def intercambiar(self, intercambio: Intercambio) -> None:
         self._ejecutar("intercambiar",
-                       {"emisor": intercambio.emisor.nickname,
+                       lambda: {"emisor": intercambio.emisor.nickname,
                         "receptor": intercambio.receptor.nickname,
                         "brinda": [e.id_ejemplar for e in intercambio.brinda],
                         "recibe": [e.id_ejemplar for e in intercambio.recibe]},
@@ -180,11 +191,11 @@ class Mercado:
         def accion():
             self._verificar(publicacion.autor)
             self._foro.publicar(publicacion)
-        self._ejecutar("publicar", {"autor": publicacion.autor.nickname,
+        self._ejecutar("publicar", lambda: {"autor": publicacion.autor.nickname,
                                     "ejemplar": publicacion.ejemplar.id_ejemplar}, accion)
 
     def retirar(self, publicacion: Publicacion) -> None:
-        self._ejecutar("retirar", {"ejemplar": publicacion.ejemplar.id_ejemplar},
+        self._ejecutar("retirar", lambda: {"ejemplar": publicacion.ejemplar.id_ejemplar},
                        lambda: self._foro.retirar(publicacion))
 
     def aceptar_publicacion(self, publicacion: Publicacion, comprador: Jugador,
@@ -196,7 +207,7 @@ class Mercado:
                 raise ErrorMercado("Esa publicación no está en el foro")
             publicacion.resolver(self, comprador, ofrece)
         self._ejecutar("aceptar_publicacion",
-                       {"autor": publicacion.autor.nickname, "comprador": comprador.nickname,
+                       lambda: {"autor": publicacion.autor.nickname, "comprador": comprador.nickname,
                         "ejemplar": publicacion.ejemplar.id_ejemplar}, accion)
 
     def cerrar_subasta(self, subasta: Subasta, fecha: date) -> Optional[Oferta]:
@@ -212,7 +223,7 @@ class Mercado:
             self._foro.retirar(subasta)  # nadie pudo pagar
             return None
         return self._ejecutar("cerrar_subasta",
-                              {"ejemplar": subasta.ejemplar.id_ejemplar,
+                              lambda: {"ejemplar": subasta.ejemplar.id_ejemplar,
                                "fecha": fecha.isoformat()}, accion)
 
     def reclamar_recompensa(self, jugador: Jugador, fecha: date) -> int:
@@ -226,22 +237,22 @@ class Mercado:
             jugador._acreditar(RECOMPENSA_DIARIA)
             return RECOMPENSA_DIARIA
         return self._ejecutar("reclamar_recompensa",
-                              {"jugador": jugador.nickname, "fecha": fecha.isoformat()}, accion)
+                              lambda: {"jugador": jugador.nickname, "fecha": fecha.isoformat()}, accion)
 
     def reclamar_premio(self, jugador: Jugador, fecha: date) -> Insignia:
         """El primero que completa la edición se lleva la insignia."""
         def accion():
             self._verificar(jugador)
-            if self._ganador is not None:
-                raise ErrorMercado(f"La insignia ya la ganó {self._ganador.nickname}")
+            if self._premio_otorgado:
+                raise ErrorMercado("La insignia de esta edición ya fue otorgada")
             if not jugador.coleccion_completa(self._edicion):
                 raise ErrorMercado("La colección no está completa")
             insignia = Insignia(fecha, self._edicion)
             jugador._agregar_insignia(insignia)
-            self._ganador = jugador
+            self._premio_otorgado = True
             return insignia
         return self._ejecutar("reclamar_premio",
-                              {"jugador": jugador.nickname, "fecha": fecha.isoformat()}, accion)
+                              lambda: {"jugador": jugador.nickname, "fecha": fecha.isoformat()}, accion)
 
     def reiniciar_anio(self, edicion: Edicion) -> None:
         def accion():
@@ -249,8 +260,23 @@ class Mercado:
                 jugador._reiniciar(POLEN_INICIAL)
             self._foro._restaurar([])
             self._edicion = edicion
-            self._ganador = None
-        self._ejecutar("reiniciar_anio", {"edicion": edicion.nombre}, accion)
+            self._premio_otorgado = False
+        self._ejecutar("reiniciar_anio", lambda: {"edicion": edicion.nombre}, accion)
+
+    def borrar_jugador(self, jugador: Jugador) -> None:
+        """Derecho de supresión (Ley 18.331, arts. 15 y 37).
+
+        El jugador se borra de todos los lugares donde vive una copia de sus datos:
+        la lista de jugadores, el foro y el historial (cada operación guarda una foto
+        del estado). Por eso el historial se vacía y lo anterior ya no se puede
+        deshacer: decidimos que la supresión pesa más que el deshacer.
+        Su polen y sus cartas salen de circulación."""
+        self._verificar(jugador)
+        self._jugadores.remove(jugador)
+        self._foro._restaurar([p for p in self._foro.publicaciones if p.autor is not jugador])
+        for publicacion in self._foro.publicaciones:
+            publicacion._olvidar_jugador(jugador)  # polimorfismo: cada tipo sabe qué borrar
+        self._historial.clear()
 
     def deshacer(self) -> Operacion:
         if not self._historial:

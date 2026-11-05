@@ -18,7 +18,7 @@ class TipoSobre:
     probabilidades: dict  # Rareza -> probabilidad
 
     def __post_init__(self):
-        if self.precio <= 0:
+        if not isinstance(self.precio, int) or isinstance(self.precio, bool) or self.precio <= 0:
             raise ValueError("El precio del sobre debe ser positivo")
         if any(p < 0 for p in self.probabilidades.values()):
             raise ValueError("No puede haber probabilidades negativas")

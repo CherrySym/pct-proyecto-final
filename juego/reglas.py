@@ -22,6 +22,11 @@ class ReglasEconomia:
     FRACCION_SISTEMA = 0.4  # parte del precio que paga el mercado al comprarte una carta
 
     @staticmethod
+    def es_monto(valor: object) -> bool:
+        """Un monto válido es un entero no negativo. bool queda afuera aunque sea int."""
+        return isinstance(valor, int) and not isinstance(valor, bool) and valor >= 0
+
+    @staticmethod
     def valor_base(rareza: Rareza) -> int:
         return ReglasEconomia.VALOR_BASE[rareza]
 

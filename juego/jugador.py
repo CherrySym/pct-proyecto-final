@@ -7,17 +7,22 @@ from typing import Optional
 from .analisis import cartas_faltantes
 from .catalogo import Edicion, Ejemplar, Insignia
 from .comunes import Azar, ErrorMercado
+from .reglas import ReglasEconomia
 from .sobres import Sobre
 
 
 class Jugador:
     """El polen y la colección son privados: solo el Mercado los modifica,
-    usando los métodos que empiezan con guion bajo."""
+    usando los métodos que empiezan con guion bajo.
 
-    def __init__(self, nombre_jugador: str, nickname: str, email: str):
+    Datos personales: solo se guarda lo que el juego usa (nombre y nickname).
+    El email se sacó porque no tenía finalidad (Ley 18.331, art. 8)."""
+
+    def __init__(self, nombre_jugador: str, nickname: str):
+        if not nickname or not isinstance(nickname, str):
+            raise ErrorMercado("El nickname es obligatorio")
         self.nombre_jugador = nombre_jugador
         self.nickname = nickname
-        self.email = email
         self._polen = 0
         self._coleccion: list = []
         self._sobres: list = []
@@ -58,15 +63,15 @@ class Jugador:
     # --- usados solo por Mercado ---
 
     def _cobrar(self, monto: int) -> None:
-        if monto < 0:
-            raise ErrorMercado("Monto negativo")
+        if not ReglasEconomia.es_monto(monto):
+            raise ErrorMercado(f"Monto inválido: {monto!r}")
         if monto > self._polen:
             raise ErrorMercado(f"{self.nickname} no tiene polen suficiente")
         self._polen -= monto
 
     def _acreditar(self, monto: int) -> None:
-        if monto < 0:
-            raise ErrorMercado("Monto negativo")
+        if not ReglasEconomia.es_monto(monto):
+            raise ErrorMercado(f"Monto inválido: {monto!r}")
         self._polen += monto
 
     def _agregar(self, ejemplar: Ejemplar) -> None:

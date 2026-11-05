@@ -2,7 +2,9 @@
 
 Este archivo es el "borde impuro": acá viven los efectos (azar real, fecha de hoy
 y pantalla). Toda la lógica está en el paquete y no imprime nada."""
+import json
 from datetime import date
+from pathlib import Path
 
 from juego import (SOBRE_COMUN, SOBRE_DORADO, AzarReal, Carta, Edicion, ErrorMercado,
                    Especie, Estacion, Jugador, Mercado, PublicacionVenta, Rareza,
@@ -26,13 +28,25 @@ def edicion_demo() -> Edicion:
     ))
 
 
+ARCHIVO_REGISTRO = Path("registro_historial.json")
+
+
+def guardar_registro(registro: list, ruta: Path) -> None:
+    """Efecto: escribe en disco. Siempre UTF-8, nunca el encoding por defecto del sistema."""
+    ruta.write_text(json.dumps(registro, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def leer_registro(ruta: Path) -> list:
+    return json.loads(ruta.read_text(encoding="utf-8"))
+
+
 def main() -> None:
     azar = AzarReal(semilla=42)  # semilla fija: la demo da siempre lo mismo
     hoy = date.today()
     edicion = edicion_demo()
     mercado = Mercado(edicion)
-    ana = Jugador("Ana", "ana_flora", "ana@ejemplo.com")
-    beto = Jugador("Beto", "beto_cactus", "beto@ejemplo.com")
+    ana = Jugador("Ana", "ana_flora")
+    beto = Jugador("Beto", "beto_cactus")
     mercado.registrar_jugador(ana)
     mercado.registrar_jugador(beto)
 
@@ -63,6 +77,11 @@ def main() -> None:
     # Deshacer: vuelve atrás la compra de la Monstera (la compra fallida nunca entró al historial)
     mercado.deshacer()
     print("Después de deshacer:", ana, beto)
+
+    # Guardar el historial en JSON: lo ocurrido queda verificable fuera del programa
+    guardar_registro(analisis.registro_operaciones(mercado.historial), ARCHIVO_REGISTRO)
+    print(f"Registro guardado en {ARCHIVO_REGISTRO}:",
+          analisis.contar_por_tipo(leer_registro(ARCHIVO_REGISTRO)))
 
     # Simulación perezosa: cuántos sobres hacen falta para completar la edición
     estacion = ReglasEconomia.estacion_de(hoy)

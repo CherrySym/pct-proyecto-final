@@ -33,6 +33,10 @@ class Publicacion(ABC):
         if not self.ejemplar.carta.intercambiable:
             raise ErrorMercado("Esa carta no se puede vender ni intercambiar")
 
+    def _olvidar_jugador(self, jugador: Jugador) -> None:
+        """Borra los datos de un jugador que la publicación tenga guardados.
+        Por defecto no hay ninguno; Subasta lo redefine porque guarda ofertas."""
+
     @abstractmethod
     def resolver(self, mercado: Mercado, comprador: Jugador,
                  ofrece: Sequence[Ejemplar]) -> None:
@@ -41,6 +45,8 @@ class Publicacion(ABC):
 
 class PublicacionVenta(Publicacion):
     def __init__(self, autor: Jugador, ejemplar: Ejemplar, precio_pedido: int):
+        if not ReglasEconomia.es_monto(precio_pedido):
+            raise ErrorMercado(f"Precio inválido: {precio_pedido!r}")
         super().__init__(autor, ejemplar)
         self.precio_pedido = precio_pedido
 
@@ -74,6 +80,10 @@ class Subasta(Publicacion):
     Mercado.cerrar_subasta, no aceptándola directamente."""
 
     def __init__(self, autor: Jugador, ejemplar: Ejemplar, precio_minimo: int, cierre: date):
+        if not ReglasEconomia.es_monto(precio_minimo):
+            raise ErrorMercado(f"Precio mínimo inválido: {precio_minimo!r}")
+        if not isinstance(cierre, date):
+            raise ErrorMercado("El cierre tiene que ser una fecha")
         super().__init__(autor, ejemplar)
         self.precio_minimo = precio_minimo
         self.cierre = cierre
@@ -92,6 +102,8 @@ class Subasta(Publicacion):
         raise ErrorMercado("Las subastas no se aceptan: se cierran con cerrar_subasta")
 
     def ofertar(self, jugador: Jugador, monto: int, fecha: date) -> Oferta:
+        if not ReglasEconomia.es_monto(monto):
+            raise ErrorMercado(f"Monto inválido: {monto!r}")
         if fecha >= self.cierre:
             raise ErrorMercado("La subasta ya cerró")
         if jugador is self.autor:
@@ -104,6 +116,9 @@ class Subasta(Publicacion):
         oferta = Oferta(jugador, monto)
         self._ofertas.append(oferta)
         return oferta
+
+    def _olvidar_jugador(self, jugador: Jugador) -> None:
+        self._ofertas = [o for o in self._ofertas if o.jugador is not jugador]
 
     def cerrar(self, fecha: date) -> tuple:
         """Devuelve las ofertas de mayor a menor. No mueve polen: eso lo hace el Mercado."""

@@ -1,10 +1,14 @@
 """Reglas de la economía como funciones puras."""
 from __future__ import annotations
 
-from typing import Sequence
+from datetime import date
+from typing import TYPE_CHECKING, Sequence
 
 from .catalogo import Carta, Ejemplar
 from .comunes import Estacion, Rareza
+
+if TYPE_CHECKING:
+    from .sobres import TipoSobre
 
 
 class ReglasEconomia:
@@ -48,3 +52,18 @@ class ReglasEconomia:
         def total(ejemplares):
             return sum(ReglasEconomia.valor_intercambio(e.carta.rareza) for e in ejemplares)
         return bool(da) and bool(recibe) and total(da) == total(recibe)
+
+    @staticmethod
+    def estacion_de(fecha: date) -> Estacion:
+        """Estaciones del hemisferio sur (Uruguay), por mes."""
+        por_mes = {12: Estacion.VERANO, 1: Estacion.VERANO, 2: Estacion.VERANO,
+                   3: Estacion.OTONO, 4: Estacion.OTONO, 5: Estacion.OTONO,
+                   6: Estacion.INVIERNO, 7: Estacion.INVIERNO, 8: Estacion.INVIERNO,
+                   9: Estacion.PRIMAVERA, 10: Estacion.PRIMAVERA, 11: Estacion.PRIMAVERA}
+        return por_mes[fecha.month]
+
+    @staticmethod
+    def valor_esperado_sobre(tipo: TipoSobre, cartas_por_sobre: int) -> float:
+        """Σ probabilidad × valor base, por cada carta del sobre."""
+        por_carta = sum(p * ReglasEconomia.valor_base(r) for r, p in tipo.probabilidades.items())
+        return por_carta * cartas_por_sobre

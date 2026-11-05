@@ -6,7 +6,7 @@ from itertools import count
 from typing import Callable, Optional, Sequence, TypeVar
 
 from .catalogo import Edicion, Ejemplar, Insignia
-from .comunes import Azar, ErrorMercado, Estacion, TipoPublicacion
+from .comunes import Azar, ErrorMercado
 from .foro import Foro, Oferta, Publicacion, Subasta
 from .jugador import Jugador
 from .operaciones import Intercambio, Operacion, Venta
@@ -47,7 +47,7 @@ class Mercado:
         return tuple(self._jugadores)
 
     def polen_total(self) -> int:
-        return sum(j.polen for j in self._jugadores)
+        return sum(map(lambda j: j.polen, self._jugadores))
 
     # --- motor: atomicidad + historial ---
 
@@ -155,9 +155,10 @@ class Mercado:
                         "ejemplar": venta.ejemplar.id_ejemplar, "precio": venta.precio},
                        lambda: self._hacer_venta(venta, comprador))
 
-    def vender_al_mercado(self, jugador: Jugador, ejemplar: Ejemplar, estacion: Estacion) -> int:
+    def vender_al_mercado(self, jugador: Jugador, ejemplar: Ejemplar, fecha: date) -> int:
         def accion():
             self._verificar(jugador)
+            estacion = ReglasEconomia.estacion_de(fecha)
             pago = ReglasEconomia.precio_venta_sistema(ejemplar.carta, estacion)
             jugador._quitar(ejemplar)
             jugador._acreditar(pago)
@@ -165,7 +166,7 @@ class Mercado:
             return pago
         return self._ejecutar("vender_al_mercado",
                               {"jugador": jugador.nickname, "ejemplar": ejemplar.id_ejemplar,
-                               "estacion": estacion.value}, accion)
+                               "fecha": fecha.isoformat()}, accion)
 
     def intercambiar(self, intercambio: Intercambio) -> None:
         self._ejecutar("intercambiar",
@@ -188,18 +189,12 @@ class Mercado:
 
     def aceptar_publicacion(self, publicacion: Publicacion, comprador: Jugador,
                             ofrece: Sequence[Ejemplar] = ()) -> None:
-        """Venta: el comprador paga precio_pedido. Intercambio: entrega `ofrece`."""
+        """Cada tipo de publicación sabe cómo resolverse (polimorfismo):
+        una venta cobra precio_pedido, un intercambio recibe `ofrece`."""
         def accion():
-            if isinstance(publicacion, Subasta):
-                raise ErrorMercado("Las subastas se resuelven con cerrar_subasta")
             if publicacion not in self._foro.publicaciones:
                 raise ErrorMercado("Esa publicación no está en el foro")
-            if publicacion.tipo == TipoPublicacion.VENTA:
-                venta = Venta(publicacion.autor, publicacion.ejemplar, publicacion.precio_pedido)
-                self._hacer_venta(venta, comprador)
-            else:
-                self._hacer_intercambio(Intercambio(publicacion.autor, comprador,
-                                                    (publicacion.ejemplar,), tuple(ofrece)))
+            publicacion.resolver(self, comprador, ofrece)
         self._ejecutar("aceptar_publicacion",
                        {"autor": publicacion.autor.nickname, "comprador": comprador.nickname,
                         "ejemplar": publicacion.ejemplar.id_ejemplar}, accion)

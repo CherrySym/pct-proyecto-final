@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
+from .analisis import cartas_faltantes
 from .catalogo import Edicion, Ejemplar, Insignia
 from .comunes import Azar, ErrorMercado
 from .sobres import Sobre
@@ -43,8 +44,7 @@ class Jugador:
         return ejemplar in self._coleccion
 
     def coleccion_completa(self, edicion: Edicion) -> bool:
-        tengo = {e.carta.id_carta for e in self._coleccion}
-        return all(c.id_carta in tengo for c in edicion.cartas)
+        return not cartas_faltantes(self._coleccion, edicion)
 
     def abrir_sobre(self, sobre: Sobre, azar: Azar) -> list:
         """Usar Mercado.abrir_sobre para que quede en el historial."""

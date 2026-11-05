@@ -41,10 +41,6 @@ class Estacion(Enum):
     VERANO = "Verano"
 
 
-class TipoPublicacion(Enum):
-    VENTA = "Venta"
-    INTERCAMBIO = "Intercambio"
-
 
 # ---------------------------------------------------------------- azar
 

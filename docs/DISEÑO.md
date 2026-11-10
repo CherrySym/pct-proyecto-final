@@ -168,3 +168,22 @@ Estas cartas se deben incluir en el sorteo correspondiente a su rareza, pero no 
 Se pueden implementar sobres que contengan cartas de una especie determinada. Por ejemplo, un sobre de Desierto y suculentas.  
 En estos casos, se mantienen las mismas probabilidades de rareza del sobre original, pero la selección de la carta se realiza únicamente entre las cartas de esa especie.
 
+## Diseño UML
+Se comenzó con un diagrama entidad-relación con tablas, ids, y claves foráneas. Por ende, la mayoría de los cambios son pasar de pensar en tablas a pensar en objetos.
+Antes teníamos ids como referencias y pasamos a tener objetos que se referencian entre sí. Por ejemplo, en objetos una venta tiene una carta, no un número.
+Teníamos cinco métodos todos en Jugador, cambiamos a que Mercado coordine las operaciones compuestas. Esto hace que una operación sea atómica y verificable.
+Existían subclases de Sobres y de Carta por rareza, ahora tenemos TipoSobre con datos y enum Rareza. Esto es porque difieren en datos, no en comportamiento.
+Antes existía sólo Carta, ahora existe la Carta y el Ejemplar. La Carta es la única del catálogo y el Ejemplar es la copia de cada jugador. Se realizó este cambio ya que evita que una carta se duplique.
+precio y valor estaban guardados en Carta, se pasaron a funciones puras en ReglasEconomia con la estación por parámetro. Esto se cambió porque el precio se calcula, no se guarda y no depende del reloj.
+El azar no tenía lugar en el diseño, implementamos Interfaz Azar con AzarReal y AzarFijo y un método Sobre.abrir(azar). Esto permite poder testear con el mismo resultado siempre.
+No había nada que registre lo que paso, se implementó Operacion, Mercado.historial y deshacer, las cuales reconstruyen el estado y deshacen.
+Habíamos puesto cantidad_monedas, pasamos a polen con la restricción de polen >= 0, ya que es una moneda ficticia.
+No existía el reinicio anual, agregamos Edicion como año, Insignia y reiniciar_anio. Es lo único que sobrevive al reinicio.
+Sin estaciones, agregamos el enum Estacion y la relación con Carta. Esto es porque el valor de la Carta cambia según la época.
+No había foro ni subastas, se agregó Foro, Publicacion, TipoPublicacion, Subasta y Oferta. La subasta es la única herencia en el UML ya que sí se comporta distinto.
+Había un “mínimo tres” en Intercambio, pasamos a tener valor_intercambio e intercambio_balanceado que es una regla de valor, no de cantidad.
+No teniamos precio mínimo, agregamos venta_valida en ReglasEconomia que hace que no se venda por debajo del valor base.
+No se habían definido las relaciones claramente, agregamos dependencias punteadas, multiplicidades, composición, agregación y visibilidad como privado o público. Esto sirve para que al momento de leer el diagrama se entienda qué usa a qué.
+A su vez, hay un par de cosas que desaparecieron. valor:string, cantidad_cartas, ediciones: string y las listas sueltas de Jugador: Sobre e Insignia ahora son relaciones.
+
+

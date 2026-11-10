@@ -10,7 +10,7 @@ from .comunes import Azar, ErrorMercado
 from .foro import Foro, Oferta, Publicacion, Subasta
 from .jugador import Jugador
 from .operaciones import Intercambio, Operacion, Venta
-from .reglas import ReglasEconomia
+from . import reglas
 from .sobres import Sobre, TipoSobre
 
 T = TypeVar("T")
@@ -30,24 +30,23 @@ class Mercado:
         self._ganador: Optional[Jugador] = None
         self._ids_sobre = count(1)  # nunca se reinicia: los ids no se reutilizan
 
-    @property
+    # --- getters: dejan leer el estado privado sin poder modificarlo
+    #     (las listas se devuelven como tuplas, que son inmutables) ---
+
     def historial(self) -> tuple:
         return tuple(self._historial)
 
-    @property
     def edicion(self) -> Edicion:
         return self._edicion
 
-    @property
     def foro(self) -> Foro:
         return self._foro
 
-    @property
     def jugadores(self) -> tuple:
         return tuple(self._jugadores)
 
     def polen_total(self) -> int:
-        return sum(map(lambda j: j.polen, self._jugadores))
+        return sum(map(lambda j: j.polen(), self._jugadores))
 
     # --- motor: atomicidad + historial ---
 
@@ -87,7 +86,7 @@ class Mercado:
         self._verificar(venta.vendedor, comprador)
         if comprador is venta.vendedor:
             raise ErrorMercado("No se puede comprar una carta propia")
-        if not ReglasEconomia.venta_valida(venta.ejemplar.carta, venta.precio):
+        if not reglas.venta_valida(venta.ejemplar.carta, venta.precio):
             raise ErrorMercado("Venta inválida (precio bajo el valor base o carta no intercambiable)")
         if not venta.vendedor.tiene(venta.ejemplar):
             raise ErrorMercado("El vendedor no tiene ese ejemplar")
@@ -111,7 +110,7 @@ class Mercado:
             raise ErrorMercado("El receptor no tiene todos los ejemplares que ofrece")
         if not all(e.carta.intercambiable for e in todos):
             raise ErrorMercado("Hay cartas que no se pueden intercambiar")
-        if not ReglasEconomia.intercambio_balanceado(inter.brinda, inter.recibe):
+        if not reglas.intercambio_balanceado(inter.brinda, inter.recibe):
             raise ErrorMercado("El intercambio no está balanceado")
         for e in inter.brinda:
             inter.emisor._quitar(e)
@@ -158,8 +157,8 @@ class Mercado:
     def vender_al_mercado(self, jugador: Jugador, ejemplar: Ejemplar, fecha: date) -> int:
         def accion():
             self._verificar(jugador)
-            estacion = ReglasEconomia.estacion_de(fecha)
-            pago = ReglasEconomia.precio_venta_sistema(ejemplar.carta, estacion)
+            estacion = reglas.estacion_de(fecha)
+            pago = reglas.precio_venta_sistema(ejemplar.carta, estacion)
             jugador._quitar(ejemplar)
             jugador._acreditar(pago)
             self._foro._retirar_ejemplar(ejemplar)
@@ -192,7 +191,7 @@ class Mercado:
         """Cada tipo de publicación sabe cómo resolverse (polimorfismo):
         una venta cobra precio_pedido, un intercambio recibe `ofrece`."""
         def accion():
-            if publicacion not in self._foro.publicaciones:
+            if publicacion not in self._foro.publicaciones():
                 raise ErrorMercado("Esa publicación no está en el foro")
             publicacion.resolver(self, comprador, ofrece)
         self._ejecutar("aceptar_publicacion",
@@ -202,10 +201,10 @@ class Mercado:
     def cerrar_subasta(self, subasta: Subasta, fecha: date) -> Optional[Oferta]:
         """Gana la oferta más alta cuyo jugador todavía tenga el polen."""
         def accion():
-            if subasta not in self._foro.publicaciones:
+            if subasta not in self._foro.publicaciones():
                 raise ErrorMercado("Esa subasta no está en el foro")
             for oferta in subasta.cerrar(fecha):
-                if oferta.jugador in self._jugadores and oferta.jugador.polen >= oferta.monto:
+                if oferta.jugador in self._jugadores and oferta.jugador.polen() >= oferta.monto:
                     self._hacer_venta(Venta(subasta.autor, subasta.ejemplar, oferta.monto),
                                       oferta.jugador)
                     return oferta
@@ -218,7 +217,7 @@ class Mercado:
     def reclamar_recompensa(self, jugador: Jugador, fecha: date) -> int:
         def accion():
             self._verificar(jugador)
-            if jugador.polen >= UMBRAL_RECOMPENSA:
+            if jugador.polen() >= UMBRAL_RECOMPENSA:
                 raise ErrorMercado(f"Solo se reclama con menos de {UMBRAL_RECOMPENSA} de polen")
             if jugador._ultima_recompensa == fecha:
                 raise ErrorMercado("La recompensa de hoy ya fue reclamada")

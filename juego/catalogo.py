@@ -18,16 +18,19 @@ class Carta:
     intercambiable: bool = True
 
 
-@dataclass
 class Edicion:
-    """Colección de un año. Completarla primero da la insignia."""
-    nombre: str
-    cartas: tuple
+    """Colección de un año. Completarla primero da la insignia.
 
-    def __post_init__(self):
-        ids = [c.id_carta for c in self.cartas]
+    Es una clase común (no dataclass) porque tiene una invariante que se
+    revisa en el constructor: no puede haber dos cartas con el mismo id_carta.
+    """
+
+    def __init__(self, nombre: str, cartas: tuple):
+        ids = [c.id_carta for c in cartas]
         if len(ids) != len(set(ids)):
             raise ValueError("Una edición no puede repetir id_carta")
+        self.nombre = nombre
+        self.cartas = tuple(cartas)
 
     def cartas_de(self, rareza: Rareza) -> tuple:
         return tuple(c for c in self.cartas if c.rareza == rareza)

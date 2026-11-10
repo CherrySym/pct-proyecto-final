@@ -6,7 +6,7 @@ from datetime import date
 
 from juego import (SOBRE_COMUN, SOBRE_DORADO, AzarReal, Carta, Edicion, ErrorMercado,
                    Especie, Estacion, Jugador, Mercado, PublicacionVenta, Rareza,
-                   ReglasEconomia, analisis)
+                   analisis, reglas)
 
 
 def edicion_demo() -> Edicion:
@@ -40,16 +40,16 @@ def main() -> None:
     sobre = mercado.comprar_sobre(ana, SOBRE_COMUN)
     for ej in mercado.abrir_sobre(ana, sobre, azar):
         print(f"Ana sacó #{ej.id_ejemplar}: {ej.carta.nombre} ({ej.carta.rareza.value})")
-    print(f"Progreso de Ana: {analisis.progreso(ana.coleccion, edicion):.0%}")
-    print("Repetidas para vender:", [e.carta.nombre for e in analisis.repetidos(ana.coleccion)])
+    print(f"Progreso de Ana: {analisis.progreso(ana.coleccion(), edicion):.0%}")
+    print("Repetidas para vender:", [e.carta.nombre for e in analisis.repetidos(ana.coleccion())])
 
     # Publicar una repetida y buscarla en el foro con criterios combinados
-    repetida = analisis.repetidos(ana.coleccion)[0]
-    precio = ReglasEconomia.valor_base(repetida.carta.rareza)
+    repetida = analisis.repetidos(ana.coleccion())[0]
+    precio = reglas.valor_base(repetida.carta.rareza)
     mercado.publicar(PublicacionVenta(ana, repetida, precio))
-    criterio = analisis.todos(analisis.faltantes_para(beto.coleccion, edicion),
+    criterio = analisis.todos(analisis.faltantes_para(beto.coleccion(), edicion),
                               analisis.precio_hasta(10))
-    encontradas = list(mercado.foro.buscar(criterio))
+    encontradas = list(mercado.foro().buscar(criterio))
     print(f"Beto encuentra {len(encontradas)} publicación(es) que le sirven")
     mercado.aceptar_publicacion(encontradas[0], beto)
     print(ana, beto, "| polen total:", mercado.polen_total())
@@ -65,7 +65,7 @@ def main() -> None:
     print("Después de deshacer:", ana, beto)
 
     # Simulación perezosa: cuántos sobres hacen falta para completar la edición
-    estacion = ReglasEconomia.estacion_de(hoy)
+    estacion = reglas.estacion_de(hoy)
     print(f"Estación de hoy: {estacion.value}")
     n = analisis.sobres_hasta_completar(SOBRE_COMUN, edicion, AzarReal(semilla=1))
     print(f"Con sobres comunes, completar la edición llevó {n} sobres en esta simulación")

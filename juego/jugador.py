@@ -24,19 +24,18 @@ class Jugador:
         self._insignias: list = []
         self._ultima_recompensa: Optional[date] = None
 
-    @property
+    # --- getters: dejan leer el estado privado sin poder modificarlo
+    #     (las listas se devuelven como tuplas, que son inmutables) ---
+
     def polen(self) -> int:
         return self._polen
 
-    @property
     def coleccion(self) -> tuple:
         return tuple(self._coleccion)
 
-    @property
     def sobres(self) -> tuple:
         return tuple(self._sobres)
 
-    @property
     def insignias(self) -> tuple:
         return tuple(self._insignias)
 

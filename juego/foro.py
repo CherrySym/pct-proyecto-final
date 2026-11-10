@@ -15,7 +15,7 @@ from .catalogo import Ejemplar
 from .comunes import ErrorMercado
 from .jugador import Jugador
 from .operaciones import Intercambio, Venta
-from .reglas import ReglasEconomia
+from . import reglas
 
 if TYPE_CHECKING:  # solo para las anotaciones; evita un import circular
     from .mercado import Mercado
@@ -46,7 +46,7 @@ class PublicacionVenta(Publicacion):
 
     def validar(self) -> None:
         super().validar()
-        if not ReglasEconomia.venta_valida(self.ejemplar.carta, self.precio_pedido):
+        if not reglas.venta_valida(self.ejemplar.carta, self.precio_pedido):
             raise ErrorMercado("El precio está por debajo del valor base")
 
     def resolver(self, mercado, comprador, ofrece):
@@ -79,13 +79,12 @@ class Subasta(Publicacion):
         self.cierre = cierre
         self._ofertas: list = []  # composición: la subasta crea sus ofertas
 
-    @property
     def ofertas(self) -> tuple:
         return tuple(self._ofertas)
 
     def validar(self) -> None:
         super().validar()
-        if not ReglasEconomia.venta_valida(self.ejemplar.carta, self.precio_minimo):
+        if not reglas.venta_valida(self.ejemplar.carta, self.precio_minimo):
             raise ErrorMercado("El precio mínimo está por debajo del valor base")
 
     def resolver(self, mercado, comprador, ofrece):
@@ -99,7 +98,7 @@ class Subasta(Publicacion):
         mejor = max((o.monto for o in self._ofertas), default=self.precio_minimo - 1)
         if monto <= mejor:
             raise ErrorMercado(f"La oferta debe superar {mejor}")
-        if monto > jugador.polen:
+        if monto > jugador.polen():
             raise ErrorMercado("No tiene polen para cubrir la oferta")
         oferta = Oferta(jugador, monto)
         self._ofertas.append(oferta)
@@ -116,7 +115,6 @@ class Foro:
     def __init__(self):
         self._publicaciones: list = []
 
-    @property
     def publicaciones(self) -> tuple:
         return tuple(self._publicaciones)
 

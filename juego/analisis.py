@@ -11,7 +11,7 @@ from typing import Callable, Iterable, Iterator, Optional
 
 from .catalogo import Edicion, Ejemplar
 from .comunes import Azar, Especie, Estacion, Rareza
-from .reglas import ReglasEconomia
+from . import reglas
 from .sobres import Sobre, TipoSobre
 
 # Un criterio es cualquier función que recibe una publicación y devuelve True o False.
@@ -49,14 +49,15 @@ def repetidos(ejemplares: Iterable[Ejemplar]) -> tuple:
         clave = ejemplar.carta.id_carta
         if clave in vistos:
             return vistos, sobran + (ejemplar,)
-        return vistos | {clave}, sobran
-    _, sobran = reduce(acumular, ejemplares, (frozenset(), ()))
+        return vistos + (clave,), sobran
+    # El acumulado es una tupla (inmutable): cada paso arma una tupla nueva.
+    _, sobran = reduce(acumular, ejemplares, ((), ()))
     return sobran
 
 
 def valor_coleccion(ejemplares: Iterable[Ejemplar], estacion: Estacion) -> int:
     """Suma del precio de cada ejemplar en esa estación (map + sum)."""
-    return sum(map(lambda e: ReglasEconomia.precio(e.carta, estacion), ejemplares))
+    return sum(map(lambda e: reglas.precio(e.carta, estacion), ejemplares))
 
 
 # ---------------------------------------------------------------- criterios del foro
@@ -107,9 +108,9 @@ def sobres_hasta_completar(tipo: TipoSobre, edicion: Edicion, azar: Azar,
     """Cuántos sobres hacen falta para completar la edición solo abriendo sobres.
     Devuelve None si no se completa antes del límite."""
     necesarias = {c.id_carta for c in edicion.cartas}
-    tengo: frozenset = frozenset()
+    tengo: set = set()
     for n, cartas in enumerate(islice(aperturas(tipo, edicion, azar), limite), start=1):
-        tengo = tengo | {c.id_carta for c in cartas}
+        tengo = tengo | {c.id_carta for c in cartas}  # `|` arma un conjunto nuevo, no modifica el anterior
         if necesarias <= tengo:
             return n
     return None

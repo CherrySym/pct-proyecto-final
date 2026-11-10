@@ -5,7 +5,7 @@ Archivos del paquete (en orden de dependencia):
                  y azar (Azar, AzarReal, AzarFijo)
 - catalogo.py    Carta, Edicion, Ejemplar, Insignia
 - sobres.py      TipoSobre, Sobre y los tres sobres del juego
-- reglas.py      ReglasEconomia: reglas de la economía (funciones puras)
+- reglas.py      reglas de la economía (funciones puras sueltas, sin clase)
 - analisis.py    Núcleo puro: consultas sobre colecciones, criterios del foro
                  y simulaciones perezosas
 - jugador.py     Jugador
@@ -31,5 +31,5 @@ from .foro import Foro, Oferta, Publicacion, PublicacionIntercambio, Publicacion
 from .jugador import Jugador
 from .mercado import POLEN_INICIAL, RECOMPENSA_DIARIA, UMBRAL_RECOMPENSA, Mercado
 from .operaciones import Intercambio, Operacion, Venta
-from .reglas import ReglasEconomia
+from . import reglas
 from .sobres import CARTAS_POR_SOBRE, SOBRE_COMUN, SOBRE_DORADO, SOBRE_PLATEADO, Sobre, TipoSobre

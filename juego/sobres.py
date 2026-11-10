@@ -11,21 +11,22 @@ from .comunes import Azar, ErrorMercado, Rareza
 CARTAS_POR_SOBRE = 5
 
 
-@dataclass
 class TipoSobre:
-    nombre: str
-    precio: int
-    probabilidades: dict  # Rareza -> probabilidad
+    """Clase común (no dataclass): las invariantes se revisan en el constructor,
+    antes de guardar nada. Si algo está mal, el objeto ni siquiera se crea."""
 
-    def __post_init__(self):
-        if self.precio <= 0:
+    def __init__(self, nombre: str, precio: int, probabilidades: dict):
+        # probabilidades: Rareza -> probabilidad
+        if precio <= 0:
             raise ValueError("El precio del sobre debe ser positivo")
-        if any(p < 0 for p in self.probabilidades.values()):
+        if any(p < 0 for p in probabilidades.values()):
             raise ValueError("No puede haber probabilidades negativas")
-        if abs(sum(self.probabilidades.values()) - 1) > 1e-9:
+        if abs(sum(probabilidades.values()) - 1) > 1e-9:
             raise ValueError("Las probabilidades deben sumar 1")
+        self.nombre = nombre
+        self.precio = precio
         # Copia de solo lectura: nadie puede cambiar las probabilidades después.
-        self.probabilidades = MappingProxyType(dict(self.probabilidades))
+        self.probabilidades = MappingProxyType(dict(probabilidades))
 
 
 @dataclass

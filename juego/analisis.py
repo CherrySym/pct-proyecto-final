@@ -49,9 +49,8 @@ def repetidos(ejemplares: Iterable[Ejemplar]) -> tuple:
         clave = ejemplar.carta.id_carta
         if clave in vistos:
             return vistos, sobran + (ejemplar,)
-        return vistos + (clave,), sobran
-    # El acumulado es una tupla (inmutable): cada paso arma una tupla nueva.
-    _, sobran = reduce(acumular, ejemplares, ((), ()))
+        return vistos | {clave}, sobran
+    _, sobran = reduce(acumular, ejemplares, (frozenset(), ()))
     return sobran
 
 

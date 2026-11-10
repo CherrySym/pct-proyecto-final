@@ -116,15 +116,3 @@ def frecuencia_rarezas(tipo: TipoSobre, edicion: Edicion, azar: Azar, sobres: in
     cuenta = reduce(lambda acc, c: {**acc, c.rareza: acc.get(c.rareza, 0) + 1}, cartas, {})
     return {rareza: n / len(cartas) for rareza, n in cuenta.items()}
 
-
-def sobres_hasta_completar(tipo: TipoSobre, edicion: Edicion, azar: Azar,
-                           limite: int = 10_000) -> Optional[int]:
-    """Cuántos sobres hacen falta para completar la edición solo abriendo sobres.
-    Devuelve None si no se completa antes del límite."""
-    necesarias = {c.id_carta for c in edicion.cartas}
-    tengo: frozenset = frozenset()
-    for n, cartas in enumerate(islice(aperturas(tipo, edicion, azar), limite), start=1):
-        tengo = tengo | {c.id_carta for c in cartas}
-        if necesarias <= tengo:
-            return n
-    return None

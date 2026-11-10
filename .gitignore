@@ -1,3 +1,5 @@
 .env
 __pycache__/
 .DS_Store
+registro_historial.json
+.pytest_cache/

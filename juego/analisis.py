@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from functools import reduce
 from itertools import count, islice
-from typing import Callable, Iterable, Iterator, Optional
+from typing import Callable, Iterable, Iterator
 
 from .catalogo import Edicion, Ejemplar
 from .comunes import Azar, Especie, Estacion, Rareza
@@ -60,6 +60,21 @@ def valor_coleccion(ejemplares: Iterable[Ejemplar], estacion: Estacion) -> int:
     return sum(map(lambda e: reglas.precio(e.carta, estacion), ejemplares))
 
 
+# ---------------------------------------------------------------- historial verificable
+
+def registro_operaciones(historial: Iterable) -> list:
+    """Convierte el historial en datos simples (listas, dicts, strings, números)
+    listos para guardar en JSON. No incluye las fotos del estado: el registro dice
+    qué pasó y en qué orden, sin copiar todos los datos de los jugadores."""
+    return [{"numero": n, "tipo": op.tipo, "datos": dict(op.datos)}
+            for n, op in enumerate(historial, start=1)]
+
+
+def contar_por_tipo(registro: Iterable[dict]) -> dict:
+    """{tipo de operación: cantidad}, para verificar un registro guardado."""
+    return reduce(lambda acc, r: {**acc, r["tipo"]: acc.get(r["tipo"], 0) + 1}, registro, {})
+
+
 # ---------------------------------------------------------------- criterios del foro
 # Fábricas de funciones (closures): cada una devuelve un criterio para Foro.buscar.
 
@@ -101,16 +116,3 @@ def frecuencia_rarezas(tipo: TipoSobre, edicion: Edicion, azar: Azar, sobres: in
     cartas = [c for sobre in islice(aperturas(tipo, edicion, azar), sobres) for c in sobre]
     cuenta = reduce(lambda acc, c: {**acc, c.rareza: acc.get(c.rareza, 0) + 1}, cartas, {})
     return {rareza: n / len(cartas) for rareza, n in cuenta.items()}
-
-
-def sobres_hasta_completar(tipo: TipoSobre, edicion: Edicion, azar: Azar,
-                           limite: int = 10_000) -> Optional[int]:
-    """Cuántos sobres hacen falta para completar la edición solo abriendo sobres.
-    Devuelve None si no se completa antes del límite."""
-    necesarias = {c.id_carta for c in edicion.cartas}
-    tengo: set = set()
-    for n, cartas in enumerate(islice(aperturas(tipo, edicion, azar), limite), start=1):
-        tengo = tengo | {c.id_carta for c in cartas}  # `|` arma un conjunto nuevo, no modifica el anterior
-        if necesarias <= tengo:
-            return n
-    return None

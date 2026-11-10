@@ -5,4 +5,4 @@ Al tener el UML realizado por nosotros decidimos pasárselo a la IA para corrobo
 Semana 2 - Utilizando el UML, la letra del problema y las ideas que pensamos sobre cómo sería el juego, le pedimos a la IA que nos hiciera las probabilidades de los sobres y los precios para que sean justos y coherentes.
 A la hora de crear los porcentajes la IA tuvo un error, el modelo asumió que al venderle una carta al mercado la ganancia que se obtiene es el 40%, pero nosotros habiamos escrito que el mercado recibe la carta y devuelve el precio de la carta, es decir, asumió información que no le dimos contradiciendo la que si le habíamos dado.
 La IA creó el código del juego en base al UML y las instrucciones que le dimos, este código presentaba con teórico que no llegamos a ver como "frozenset", "@staticmethod", "@property" o "_post_init_".
-Semana 3 - 
+Semana 3 - Le pedimos a la IA que simplificara el código utilizando unicamente los temas y funciones dadas, ya que gran parte del código utilizado estaba construido alrededor de objetos de los que no entendíamos su funcionamiento. Esto nos devolvió un código ligeramente mas largo pero muchisimo mas legible para nosotros.

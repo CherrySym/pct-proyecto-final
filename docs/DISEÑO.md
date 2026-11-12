@@ -169,6 +169,9 @@ Se pueden implementar sobres que contengan cartas de una especie determinada. Po
 En estos casos, se mantienen las mismas probabilidades de rareza del sobre original, pero la selección de la carta se realiza únicamente entre las cartas de esa especie.
 
 ## Diseño UML
+
+![Diagrama UML](../UML.png)
+
 Se comenzó con un diagrama entidad-relación con tablas, ids, y claves foráneas. Por ende, la mayoría de los cambios son pasar de pensar en tablas a pensar en objetos.
 Antes teníamos ids como referencias y pasamos a tener objetos que se referencian entre sí. Por ejemplo, en objetos una venta tiene una carta, no un número.
 Teníamos cinco métodos todos en Jugador, cambiamos a que Mercado coordine las operaciones compuestas. Esto hace que una operación sea atómica y verificable.

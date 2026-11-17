@@ -1,17 +1,19 @@
+primera version
+
 que debe tener en general
 ETICA.md es una página con cuatro partes: los datos que maneja la aplicación, un riesgo ético concreto junto con el cambio de diseño que lo mitiga, un marco legal o una licencia citados después de haberlos leído, y el uso de IA realizado.
 
 que debe tener el tema de sobres
 ETICA.md debe analizar la transparencia de las probabilidades de los sobres, la relación entre las mecánicas de azar y las apuestas (el juego de azar con dinero real está regulado por el Estado, y este mercado usa moneda ficticia) y el efecto sobre menores. Además del código y el UML, se entrega la lista de reglas que el sistema nunca debe violar, con el test que protege cada una.
 
-# Análisis Ético, Marco Legal y Uso de Inteligencia Artificial
+(extracto de BITACORA_IA.md)
 
 ### Datos personales (Ley 18.331)
 
-(extracto de BITACORA_IA.md)
-
 - Se eliminó `email` de `Jugador`: no tenía finalidad (art. 8). Esto cambia respecto del diseño original.
 - `borrar_jugador` aplica el derecho de supresión (arts. 15 y 37). Lo saca de la lista de jugadores, del foro y de las ofertas, y vacía el historial, porque cada operación guarda una foto del estado. Se decidió que la supresión pesa más que el deshacer, y por eso lo anterior ya no se puede deshacer.
+
+# Análisis Ético
 
 ## 1. Datos que maneja la aplicación
 
@@ -73,7 +75,7 @@ Al implementar `Mercado.borrar_jugador(jugador)` (protegido por la regla **R16**
 
 ## 4. Uso de Inteligencia Artificial realizado
 
-El desarrollo del proyecto incorporó herramientas de Inteligencia Artificial generativa bajo una metodología de asistencia supervisada y crítica, documentada en detalle en la bitácora del proyecto:
+Se incorporó herramientas de Inteligencia Artificial generativa bajo una metodología de asistencia supervisada y crítica, documentada en detalle en la bitácora del proyecto:
 
 1. **Diseño conceptual y modelado inicial (Humano):**  
    La concepción temática del mercado de plantas, la dinámica de estaciones y la primera iteración del diagrama UML fueron elaboradas de manera autónoma por el equipo. La IA se utilizó con posterioridad para contrastar decisiones de diseño y validar posibles omisiones en las relaciones entre entidades.

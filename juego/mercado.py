@@ -9,7 +9,7 @@ from .catalogo import Edicion, Ejemplar, Insignia
 from .comunes import Azar, ErrorMercado
 from .foro import Foro, Oferta, Publicacion, Subasta
 from .jugador import Jugador
-from .operaciones import Intercambio, Operacion, Venta
+from .operaciones import Intercambio, Operacion, Transaccion, Venta
 from . import reglas
 from .sobres import Sobre, TipoSobre
 
@@ -89,46 +89,16 @@ class Mercado:
             if not isinstance(j, Jugador) or j not in self._jugadores:
                 raise ErrorMercado(f"{j!r} no es un jugador registrado")
 
-    # --- pasos internos (validan primero, después modifican) ---
+    # --- paso interno: ejecutar una transacción ---
 
-    def _hacer_venta(self, venta: Venta, comprador: Jugador) -> None:
-        self._verificar(venta.vendedor, comprador)
-        if comprador is venta.vendedor:
-            raise ErrorMercado("No se puede comprar una carta propia")
-        if not reglas.venta_valida(venta.ejemplar.carta, venta.precio):
-            raise ErrorMercado("Venta inválida (precio bajo el valor base o carta no intercambiable)")
-        if not venta.vendedor.tiene(venta.ejemplar):
-            raise ErrorMercado("El vendedor no tiene ese ejemplar")
-        comprador._cobrar(venta.precio)
-        venta.vendedor._quitar(venta.ejemplar)
-        comprador._agregar(venta.ejemplar)
-        venta.vendedor._acreditar(venta.precio)
-        self._foro._retirar_ejemplar(venta.ejemplar)
-
-    def _hacer_intercambio(self, inter: Intercambio) -> None:
-        self._verificar(inter.emisor, inter.receptor)
-        if inter.emisor is inter.receptor:
-            raise ErrorMercado("No se puede intercambiar con uno mismo")
-        todos = list(inter.brinda) + list(inter.recibe)
-        ids = [e.id_ejemplar for e in todos]
-        if len(set(ids)) != len(ids):
-            raise ErrorMercado("Un ejemplar aparece repetido en el intercambio")
-        if not all(inter.emisor.tiene(e) for e in inter.brinda):
-            raise ErrorMercado("El emisor no tiene todos los ejemplares que ofrece")
-        if not all(inter.receptor.tiene(e) for e in inter.recibe):
-            raise ErrorMercado("El receptor no tiene todos los ejemplares que ofrece")
-        if not all(e.carta.intercambiable for e in todos):
-            raise ErrorMercado("Hay cartas que no se pueden intercambiar")
-        if not reglas.intercambio_balanceado(inter.brinda, inter.recibe):
-            raise ErrorMercado("El intercambio no está balanceado")
-        for e in inter.brinda:
-            inter.emisor._quitar(e)
-            inter.receptor._agregar(e)
-        for e in inter.recibe:
-            inter.receptor._quitar(e)
-            inter.emisor._agregar(e)
-        for e in todos:
-            self._foro._retirar_ejemplar(e)
+    def _ejecutar_transaccion(self, transaccion: Transaccion) -> None:
+        """Sirve para cualquier Transaccion (Venta, Intercambio...): el Mercado verifica
+        lo que solo él sabe (quién está registrado) y cada transacción se aplica a su
+        manera (polimorfismo). Después, sus ejemplares ya no pueden seguir en el foro."""
+        self._verificar(*transaccion.participantes())
+        transaccion.aplicar()
+        for ejemplar in transaccion.ejemplares():
+            self._foro._retirar_ejemplar(ejemplar)
 
     # --- operaciones públicas ---
 
@@ -159,11 +129,12 @@ class Mercado:
         return self._ejecutar("abrir_sobre",
                               lambda: {"jugador": jugador.nickname, "sobre": sobre.id_sobre}, accion)
 
-    def comprar_carta(self, venta: Venta, comprador: Jugador) -> None:
+    def comprar_carta(self, venta: Venta) -> None:
         self._ejecutar("comprar_carta",
-                       lambda: {"vendedor": venta.vendedor.nickname, "comprador": comprador.nickname,
+                       lambda: {"vendedor": venta.vendedor.nickname,
+                        "comprador": venta.comprador.nickname,
                         "ejemplar": venta.ejemplar.id_ejemplar, "precio": venta.precio},
-                       lambda: self._hacer_venta(venta, comprador))
+                       lambda: self._ejecutar_transaccion(venta))
 
     def vender_al_mercado(self, jugador: Jugador, ejemplar: Ejemplar, fecha: date) -> int:
         def accion():
@@ -184,7 +155,7 @@ class Mercado:
                         "receptor": intercambio.receptor.nickname,
                         "brinda": [e.id_ejemplar for e in intercambio.brinda],
                         "recibe": [e.id_ejemplar for e in intercambio.recibe]},
-                       lambda: self._hacer_intercambio(intercambio))
+                       lambda: self._ejecutar_transaccion(intercambio))
 
     def publicar(self, publicacion: Publicacion) -> None:
         def accion():
@@ -199,12 +170,12 @@ class Mercado:
 
     def aceptar_publicacion(self, publicacion: Publicacion, comprador: Jugador,
                             ofrece: Sequence[Ejemplar] = ()) -> None:
-        """Cada tipo de publicación sabe cómo resolverse (polimorfismo):
-        una venta cobra precio_pedido, un intercambio recibe `ofrece`."""
+        """La publicación describe la operación (polimorfismo: una venta devuelve
+        una Venta, un intercambio un Intercambio) y el Mercado la ejecuta."""
         def accion():
             if publicacion not in self._foro.publicaciones():
                 raise ErrorMercado("Esa publicación no está en el foro")
-            publicacion.resolver(self, comprador, ofrece)
+            self._ejecutar_transaccion(publicacion.resolver(comprador, ofrece))
         self._ejecutar("aceptar_publicacion",
                        lambda: {"autor": publicacion.autor.nickname, "comprador": comprador.nickname,
                         "ejemplar": publicacion.ejemplar.id_ejemplar}, accion)
@@ -216,8 +187,8 @@ class Mercado:
                 raise ErrorMercado("Esa subasta no está en el foro")
             for oferta in subasta.cerrar(fecha):
                 if oferta.jugador in self._jugadores and oferta.jugador.polen() >= oferta.monto:
-                    self._hacer_venta(Venta(subasta.autor, subasta.ejemplar, oferta.monto),
-                                      oferta.jugador)
+                    self._ejecutar_transaccion(
+                        Venta(subasta.autor, oferta.jugador, subasta.ejemplar, oferta.monto))
                     return oferta
             self._foro.retirar(subasta)  # nadie pudo pagar
             return None

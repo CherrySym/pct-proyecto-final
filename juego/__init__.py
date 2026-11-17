@@ -9,13 +9,14 @@ Archivos del paquete (en orden de dependencia):
 - analisis.py    Núcleo puro: consultas sobre colecciones, criterios del foro
                  y simulaciones perezosas
 - jugador.py     Jugador
-- operaciones.py Venta, Intercambio, Operacion
+- operaciones.py Transaccion (abstracta), Venta, Intercambio, Operacion
 - foro.py        Publicacion (abstracta), PublicacionVenta, PublicacionIntercambio,
                  Subasta, Oferta, Foro
 - mercado.py     Mercado
 
 Reglas generales:
-- La única clase que crea, quema o mueve polen es Mercado.
+- El polen solo se mueve dentro de una operación que ejecuta el Mercado
+  (las transacciones se aplican desde Mercado._ejecutar_transaccion).
 - Toda operación del Mercado se ejecuta con `_ejecutar`: si falla a la mitad,
   se restaura el estado anterior (no deja rastros) y, si sale bien, se guarda
   en el historial para poder deshacerla.
@@ -30,6 +31,6 @@ from .comunes import Azar, AzarFijo, AzarReal, ErrorMercado, Especie, Estacion, 
 from .foro import Foro, Oferta, Publicacion, PublicacionIntercambio, PublicacionVenta, Subasta
 from .jugador import Jugador
 from .mercado import POLEN_INICIAL, RECOMPENSA_DIARIA, UMBRAL_RECOMPENSA, Mercado
-from .operaciones import Intercambio, Operacion, Venta
+from .operaciones import Intercambio, Operacion, Transaccion, Venta
 from . import reglas
 from .sobres import CARTAS_POR_SOBRE, SOBRE_COMUN, SOBRE_DORADO, SOBRE_PLATEADO, Sobre, TipoSobre

@@ -86,8 +86,12 @@ def de_rareza(rareza: Rareza) -> Criterio:
 
 
 def precio_hasta(maximo: int) -> Criterio:
-    """Solo publicaciones con precio, y que no pasen el máximo."""
-    return lambda pub: getattr(pub, "precio_pedido", None) is not None and pub.precio_pedido <= maximo
+    """Publicaciones con precio (venta o subasta) que no pasen el máximo.
+    Cada publicación dice su precio (polimorfismo); el criterio no pregunta el tipo."""
+    def cumple(pub) -> bool:
+        precio = pub.precio_de_referencia()
+        return precio is not None and precio <= maximo
+    return cumple
 
 
 def faltantes_para(ejemplares: Iterable[Ejemplar], edicion: Edicion) -> Criterio:

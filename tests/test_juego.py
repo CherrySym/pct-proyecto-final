@@ -11,7 +11,7 @@ import pytest
 from juego import (CARTAS_POR_SOBRE, SOBRE_COMUN, SOBRE_DORADO, SOBRE_PLATEADO, AzarFijo,
                    AzarReal, Carta, Edicion, Ejemplar, ErrorMercado, Especie, Estacion,
                    Intercambio, Jugador, Mercado, POLEN_INICIAL, PublicacionIntercambio,
-                   PublicacionVenta, Rareza, Subasta, analisis, reglas)
+                   PublicacionVenta, Rareza, Subasta, Venta, analisis, reglas)
 
 E, R, S = Especie, Rareza, Estacion
 HOY = date(2026, 11, 5)
@@ -367,6 +367,43 @@ def test_r15_gana_la_oferta_mas_alta_que_todavia_puede_pagar(mercado, ana, beto,
     carla._cobrar(carla.polen())                       # Carla se queda sin polen antes del cierre
     ganadora = mercado.cerrar_subasta(subasta, date(2026, 12, 1))
     assert ganadora.jugador is beto and beto.tiene(ejemplar)
+
+
+def test_r15_la_busqueda_por_precio_incluye_subastas(mercado, ana, edicion):
+    """Cada publicación dice su precio (precio_de_referencia): la subasta usa su
+    precio mínimo y el intercambio no tiene precio, así que no aparece."""
+    venta = PublicacionVenta(ana, dar(ana, edicion.cartas[0], 1001), 10)
+    subasta = Subasta(ana, dar(ana, edicion.cartas[2], 1002), 15, date(2026, 12, 1))
+    intercambio = PublicacionIntercambio(ana, dar(ana, edicion.cartas[1], 1003))
+    cara = PublicacionVenta(ana, dar(ana, edicion.cartas[3], 1004), 90)
+    for publicacion in (venta, subasta, intercambio, cara):
+        mercado.publicar(publicacion)
+    assert list(mercado.foro().buscar(analisis.precio_hasta(20))) == [venta, subasta]
+
+
+def test_r15_resolver_venta_devuelve_la_operacion_sin_mercado(edicion):
+    """resolver se prueba sin armar un Mercado: solo describe la operación."""
+    ana, beto = Jugador("Ana", "ana"), Jugador("Beto", "beto")
+    ejemplar = dar(ana, edicion.cartas[2], 1001)
+    venta = PublicacionVenta(ana, ejemplar, 20).resolver(beto, ())
+    assert venta == Venta(ana, beto, ejemplar, 20)
+    assert ana.tiene(ejemplar) and not beto.tiene(ejemplar)  # no movió nada
+
+
+def test_r15_resolver_intercambio_devuelve_la_operacion_sin_mercado(edicion):
+    ana, beto = Jugador("Ana", "ana"), Jugador("Beto", "beto")
+    mia = dar(ana, edicion.cartas[0], 1001)
+    suya = dar(beto, edicion.cartas[1], 2001)
+    intercambio = PublicacionIntercambio(ana, mia).resolver(beto, [suya])
+    assert intercambio == Intercambio(ana, beto, (mia,), (suya,))
+    assert ana.tiene(mia) and beto.tiene(suya)
+
+
+def test_r15_el_foro_no_depende_del_mercado():
+    """foro.py no importa mercado.py: no hay import circular."""
+    import juego.foro
+    with open(juego.foro.__file__, encoding="utf-8") as archivo:
+        assert "mercado import" not in archivo.read()
 
 
 # ---------------------------------------------------------------- R16: derecho de supresión

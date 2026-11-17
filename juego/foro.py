@@ -1,24 +1,25 @@
 """Foro de publicaciones: ventas, intercambios y subastas.
 
-Publicacion es abstracta. Cada tipo de publicación sabe validarse y resolverse
-a su manera (polimorfismo), así que ni el Foro ni el Mercado preguntan
-"¿de qué tipo es?". Para agregar un tipo nuevo alcanza con una subclase nueva.
+Publicacion es abstracta. Cada tipo de publicación sabe validarse, resolverse
+y decir su precio de referencia a su manera (polimorfismo), así que ni el Foro,
+ni el Mercado, ni los criterios de búsqueda preguntan "¿de qué tipo es?".
+Para agregar un tipo nuevo alcanza con una subclase nueva.
+
+Este archivo no conoce al Mercado: resolver() solo describe la operación
+(devuelve una Venta o un Intercambio) y el Mercado es quien la ejecuta.
 """
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date
-from typing import TYPE_CHECKING, Callable, Iterator, Sequence
+from typing import Callable, Iterator, Optional, Sequence
 
 from .catalogo import Ejemplar
 from .comunes import ErrorMercado
 from .jugador import Jugador
-from .operaciones import Intercambio, Venta
+from .operaciones import Intercambio, Transaccion, Venta
 from . import reglas
-
-if TYPE_CHECKING:  # solo para las anotaciones; evita un import circular
-    from .mercado import Mercado
 
 
 class Publicacion(ABC):
@@ -38,9 +39,13 @@ class Publicacion(ABC):
         Por defecto no hay ninguno; Subasta lo redefine porque guarda ofertas."""
 
     @abstractmethod
-    def resolver(self, mercado: Mercado, comprador: Jugador,
-                 ofrece: Sequence[Ejemplar]) -> None:
-        """Lo que pasa cuando alguien acepta la publicación."""
+    def precio_de_referencia(self) -> Optional[int]:
+        """El precio con el que se compara la publicación, o None si no tiene."""
+
+    @abstractmethod
+    def resolver(self, comprador: Jugador, ofrece: Sequence[Ejemplar]) -> Transaccion:
+        """Describe la operación que ocurre si `comprador` acepta la publicación.
+        No modifica nada: devuelve el dato y el Mercado la ejecuta."""
 
 
 class PublicacionVenta(Publicacion):
@@ -55,8 +60,11 @@ class PublicacionVenta(Publicacion):
         if not reglas.venta_valida(self.ejemplar.carta, self.precio_pedido):
             raise ErrorMercado("El precio está por debajo del valor base")
 
-    def resolver(self, mercado, comprador, ofrece):
-        mercado._hacer_venta(Venta(self.autor, self.ejemplar, self.precio_pedido), comprador)
+    def precio_de_referencia(self) -> int:
+        return self.precio_pedido
+
+    def resolver(self, comprador, ofrece) -> Venta:
+        return Venta(self.autor, comprador, self.ejemplar, self.precio_pedido)
 
 
 class PublicacionIntercambio(Publicacion):
@@ -64,9 +72,11 @@ class PublicacionIntercambio(Publicacion):
         super().__init__(autor, ejemplar)
         self.busca = busca  # texto libre: qué quiere a cambio
 
-    def resolver(self, mercado, comprador, ofrece):
-        mercado._hacer_intercambio(
-            Intercambio(self.autor, comprador, (self.ejemplar,), tuple(ofrece)))
+    def precio_de_referencia(self) -> None:
+        return None  # un intercambio no tiene precio
+
+    def resolver(self, comprador, ofrece) -> Intercambio:
+        return Intercambio(self.autor, comprador, (self.ejemplar,), tuple(ofrece))
 
 
 @dataclass
@@ -97,7 +107,10 @@ class Subasta(Publicacion):
         if not reglas.venta_valida(self.ejemplar.carta, self.precio_minimo):
             raise ErrorMercado("El precio mínimo está por debajo del valor base")
 
-    def resolver(self, mercado, comprador, ofrece):
+    def precio_de_referencia(self) -> int:
+        return self.precio_minimo
+
+    def resolver(self, comprador, ofrece):
         raise ErrorMercado("Las subastas no se aceptan: se cierran con cerrar_subasta")
 
     def ofertar(self, jugador: Jugador, monto: int, fecha: date) -> Oferta:

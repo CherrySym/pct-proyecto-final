@@ -189,4 +189,74 @@ No teniamos precio mínimo, agregamos venta_valida en ReglasEconomia que hace qu
 No se habían definido las relaciones claramente, agregamos dependencias punteadas, multiplicidades, composición, agregación y visibilidad como privado o público. Esto sirve para que al momento de leer el diagrama se entienda qué usa a qué.
 A su vez, hay un par de cosas que desaparecieron. valor:string, cantidad_cartas, ediciones: string y las listas sueltas de Jugador: Sobre e Insignia ahora son relaciones.
 
+## Qué no figura en el UML y por qué
+El UML muestra la estructura: clases, atributos, relaciones y los métodos que definen el comportamiento de cada clase. Quedaron afuera los detalles de implementación y las funciones puras de módulo. Esta sección los explica para poder comparar el diagrama con el código.
+
+### Convenciones de notación
+- Los atributos llevan visibilidad (`-` privado, `+` público) y los métodos no. En el código los métodos con guion bajo son de uso interno por convención. En el UML aparecen sin signo `hacer_venta`, `hacer_intercambio`, `sortear_carta`, `olvidar_jugador` y, en `Jugador`, `cobrar`, `acreditar`, `agregar` y `quitar`, que solo usa `Mercado`.
+- Tipos: `lista de X` es `list`, `dicc` es `dict`, `fecha` es `datetime.date` e `int | None` es `Optional[int]`.
+- `Azar` se dibuja como «interface», pero en Python es una clase abstracta (`ABC`).
+- `ReglasEconomia` y `Analisis` se dibujan como clases «utility» porque UML no tiene funciones sueltas. En el código son los módulos `reglas.py` y `analisis.py`: funciones puras, sin estado y sin clase.
+
+### Motor de atomicidad y deshacer (Mercado)
+Quedó sin dibujar `-ejecutar(tipo, datos, accion)`, junto con `-verificar`, `-capturar` y `-restaurar` (`Jugador` y `Foro` también tienen `capturar` y `restaurar`).
+- `ejecutar` es una función de orden superior. Guarda una foto del estado, corre la acción y, si falla, restaura la foto. Una operación inválida no deja rastros.
+- Si la acción lanza `TypeError`, `AttributeError` o `ValueError`, se convierte en `ErrorMercado`, con el error original encadenado.
+- Si sale bien, agrega `Operacion(tipo, datos, estado_previo)` al historial. `datos` es una función que se evalúa recién cuando la operación salió bien, así armar el registro nunca falla por una entrada inválida.
+- `deshacer()` saca la última operación del historial y restaura su `estado_previo`.
+- Solo `Mercado` mueve polen.
+
+### Métodos y atributos que no se dibujaron
+- Getters que devuelven tuplas, para leer sin poder modificar: `Mercado.historial()`, `edicion()`, `foro()` y `jugadores()`; `Foro.publicaciones()`; `Subasta.ofertas()`.
+- Auxiliares de `Jugador`: `agregar_sobre`, `agregar_insignia`, `marcar_recompensa`, `reiniciar`, `capturar` y `restaurar`, y el atributo `-ultima_recompensa`.
+- Auxiliares de `Foro`: `retirar_ejemplar`, `capturar` y `restaurar`.
+
+### Funciones puras de reglas.py (ReglasEconomia)
+- `precio(carta, estacion) = round(valor_base(rareza) × multiplicador)`. El multiplicador es 1.5 si la estación de la carta coincide con la actual y 1.0 si no. El precio se calcula y no se guarda.
+- `precio_venta_sistema`: el mercado le compra a un jugador al 40 % del precio.
+- `estacion_de(fecha)`: estaciones del hemisferio sur, por mes. La fecha entra por parámetro para no depender del reloj.
+- `es_monto(valor)`: entero no negativo, y `bool` queda afuera.
+- `valor_esperado_sobre(tipo, cartas_por_sobre)`: Σ probabilidad × valor base, por carta.
+
+| Rareza | Valor base | Valor de intercambio |
+|---|---|---|
+| Común | 5 | 1 |
+| Rara | 15 | 3 |
+| Épica | 50 | 10 |
+| Legendaria | 200 | 40 |
+| Mítica | 800 | 160 |
+
+### Funciones puras de analisis.py (Analisis)
+El UML muestra solo `precio_hasta`. Las otras 13, agrupadas:
+- Colección: `cartas_faltantes` (filter), `progreso`, `contar_por_carta` (reduce sin mutar), `repetidos` y `valor_coleccion` (map).
+- Historial: `registro_operaciones` y `contar_por_tipo`.
+- Criterios del foro, que son closures que devuelven una función para `Foro.buscar`: `de_especie`, `de_rareza`, `faltantes_para` y `todos` (que combina criterios).
+- Simulación perezosa: `aperturas` (generador infinito de sobres) y `frecuencia_rarezas`.
+
+`Jugador.coleccion_completa` usa `cartas_faltantes`.
+
+### Valores del juego
+- Constantes: polen inicial 100, recompensa diaria 20, umbral de recompensa 50 y 5 cartas por sobre.
+- Sobres (instancias de `TipoSobre`, no subclases):
+
+| Sobre | Precio | Común | Rara | Épica | Legendaria | Mítica |
+|---|---|---|---|---|---|---|
+| Común | 50 | 75 % | 20 % | 4 % | 0,9 % | 0,1 % |
+| Plateado | 150 | 40 % | 38 % | 17 % | 4,5 % | 0,5 % |
+| Dorado | 500 | 0 % | 30 % | 45 % | 20 % | 5 % |
+
+### Reglas de negocio que no se ven en el diagrama
+- **Azar y apertura:** `Sobre.abrir(azar)` sortea primero la rareza, solo entre las que tienen cartas en la edición y probabilidad mayor que 0, y después la carta, con pesos iguales. El `id_ejemplar` sale de `id_sobre × 5 + i`, y los `id_sobre` no se reutilizan nunca, ni siquiera en el reinicio anual. `AzarFijo` permite testear con el mismo resultado siempre.
+- **Invariantes en los constructores:** `TipoSobre` (precio positivo, probabilidades no negativas que suman 1, y copia de solo lectura), `Edicion` (sin `id_carta` repetidos), `PublicacionVenta` y `Subasta` (monto válido), `Subasta` (cierre es una fecha) y `Jugador` (nickname obligatorio). Si algo está mal, el objeto no se crea.
+- **Venta:** el precio debe ser mayor o igual al valor base, la carta debe ser intercambiable, y no se puede comprar una carta propia.
+- **Intercambio:** la suma de `valor_intercambio` de ambos lados debe ser igual, ninguno puede estar vacío, no se puede intercambiar con uno mismo, ni repetir un ejemplar, ni usar cartas no intercambiables. Esto reemplaza al "mínimo 3" del diseño original.
+- **Foro:** un ejemplar no puede estar publicado dos veces, y si cambia de dueño se retira su publicación. `buscar` devuelve un iterador perezoso. Cada tipo de publicación sabe validarse y borrar datos de un jugador (polimorfismo).
+- **Subasta:** cada oferta debe superar la mejor (o el mínimo), el autor no puede ofertar y el oferente debe tener el polen. `cerrar` solo ordena las ofertas y es `Mercado` quien mueve el polen. Gana la oferta más alta cuyo jugador todavía tenga el polen, y si nadie puede pagar, la subasta se retira.
+- **Recompensa:** solo con menos de 50 de polen y una vez por fecha.
+- **Premio:** la insignia la obtiene el primero que completa la edición, y `premio_otorgado` impide darla dos veces.
+- **Reinicio anual:** se conservan solo las insignias. El polen vuelve a 100 y la colección, los sobres y el foro quedan vacíos.
+
+### ErrorMercado
+Excepción única del dominio (hereda de `Exception`). Se lanza ante cualquier operación inválida y, cuando se lanza, el sistema queda como estaba. No se dibuja porque casi todas las clases la usan y llenaría el diagrama de flechas.
+
 

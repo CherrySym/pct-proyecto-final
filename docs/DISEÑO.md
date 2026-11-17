@@ -51,7 +51,7 @@ Los jugadores pueden vender sus cartas a otros jugadores o al mercado del sistem
 Cuando se vende una carta al mercado del sistema, el jugador recibe el 40% de su valor base, teniendo en cuenta el multiplicador de la estación correspondiente. La carta se elimina de su colección y vuelve a estar disponible para otros jugadores mediante los mecanismos de obtención que correspondan.  
 Los precios de las cartas se calculan a partir de su rareza y de un precio base establecido para cada una. Las cartas de mayor rareza tienen un valor más alto.
 
-En las ventas entre jugadores, el precio puede ser superior o inferior al valor base. El valor base funciona como referencia para los jugadores, pero el precio final depende de lo que acuerden ambas partes.
+En las ventas entre jugadores, el precio puede ser mayor o igual al valor base. El valor base funciona como referencia para los jugadores, pero el precio final depende de lo que acuerden ambas partes.
 
 Para intercambiar cartas, cada una tiene un valor según su rareza. Por ejemplo, si una carta A tiene un valor de 3 y una carta B tiene un valor de 1, el jugador que ofrece la carta A puede solicitar la carta B y otras dos cartas de valor 1 para completar el intercambio.
 
@@ -193,7 +193,7 @@ A su vez, hay un par de cosas que desaparecieron. valor:string, cantidad_cartas,
 El UML muestra la estructura: clases, atributos, relaciones y los métodos que definen el comportamiento de cada clase. Quedaron afuera los detalles de implementación y las funciones puras de módulo. Esta sección los explica para poder comparar el diagrama con el código.
 
 ### Convenciones de notación
-- Los atributos llevan visibilidad (`-` privado, `+` público) y los métodos no. En el código los métodos con guion bajo son de uso interno por convención. En el UML aparecen sin signo `hacer_venta`, `hacer_intercambio`, `sortear_carta`, `olvidar_jugador` y, en `Jugador`, `cobrar`, `acreditar`, `agregar` y `quitar`, que solo usa `Mercado`.
+- Los atributos llevan visibilidad (`-` privado, `+` público) y los métodos no. En el código los métodos con guion bajo son de uso interno por convención. En el UML aparecen sin signo `ejecutar_transaccion`, `sortear_carta`, `olvidar_jugador` y, en `Jugador`, `cobrar`, `acreditar`, `agregar` y `quitar`, que solo usa `Mercado`.
 - Tipos: `lista de X` es `list`, `dicc` es `dict`, `fecha` es `datetime.date` e `int | None` es `Optional[int]`.
 - `Azar` se dibuja como «interface», pero en Python es una clase abstracta (`ABC`).
 - `ReglasEconomia` y `Analisis` se dibujan como clases «utility» porque UML no tiene funciones sueltas. En el código son los módulos `reglas.py` y `analisis.py`: funciones puras, sin estado y sin clase.
@@ -204,7 +204,7 @@ Quedó sin dibujar `-ejecutar(tipo, datos, accion)`, junto con `-verificar`, `-c
 - Si la acción lanza `TypeError`, `AttributeError` o `ValueError`, se convierte en `ErrorMercado`, con el error original encadenado.
 - Si sale bien, agrega `Operacion(tipo, datos, estado_previo)` al historial. `datos` es una función que se evalúa recién cuando la operación salió bien, así armar el registro nunca falla por una entrada inválida.
 - `deshacer()` saca la última operación del historial y restaura su `estado_previo`.
-- Solo `Mercado` mueve polen.
+- Al polen lo mueven las transacciones pero siempre dentro de una operación que ejecuta `Mercado`.
 
 ### Métodos y atributos que no se dibujaron
 - Getters que devuelven tuplas, para leer sin poder modificar: `Mercado.historial()`, `edicion()`, `foro()` y `jugadores()`; `Foro.publicaciones()`; `Subasta.ofertas()`.
@@ -258,5 +258,58 @@ El UML muestra solo `precio_hasta`. Las otras 13, agrupadas:
 
 ### ErrorMercado
 Excepción única del dominio (hereda de `Exception`). Se lanza ante cualquier operación inválida y, cuando se lanza, el sistema queda como estaba. No se dibuja porque casi todas las clases la usan y llenaría el diagrama de flechas.
+
+# Cambio de requisito y refactor
+El profesor pidió dos cambios de diseño sobre el núcleo (`Cambio.md`):
+1. Que cada publicación diga su precio por polimorfismo, sin `getattr`.
+2. Que `resolver` devuelva la operación en vez de ejecutarla.
+
+## Cambio 1: cada publicación dice su precio
+**Antes.** `analisis.precio_hasta` usaba `getattr(pub, "precio_pedido", None)` para saber si una publicación tenía precio. Eso es preguntar "¿de qué tipo sos?" por la puerta de atrás. Además, las subastas nunca aparecían en una búsqueda por precio, aunque tienen `precio_minimo`.
+
+**Ahora.** `Publicacion` tiene el método abstracto `precio_de_referencia(): int | None` y cada subclase responde a su manera:
+
+| Clase | Devuelve |
+|---|---|
+| `PublicacionVenta` | `precio_pedido` |
+| `Subasta` | `precio_minimo` |
+| `PublicacionIntercambio` | `None` (un intercambio no tiene precio) |
+
+`precio_hasta` llama a `pub.precio_de_referencia()` y ya no pregunta el tipo. Si aparece un tipo de publicación nuevo, no hay que tocar `precio_hasta`.
+
+**Alternativas descartadas.** Mantener `getattr` o usar `isinstance` dentro de `precio_hasta`: las dos siguen preguntando el tipo y obligan a modificar la función por cada tipo nuevo. [confirmar]
+
+**Test.** `test_r15_la_busqueda_por_precio_incluye_subastas`: con una venta barata, una subasta, un intercambio y una venta cara, `precio_hasta(20)` devuelve la venta barata y la subasta.
+
+## Cambio 2: `resolver` devuelve la operación
+**Antes.** `PublicacionVenta.resolver` y `PublicacionIntercambio.resolver` llamaban a `mercado._hacer_venta` y `mercado._hacer_intercambio`, métodos con guion bajo de otra clase. Por eso `foro.py` tenía que importar `Mercado` solo para las anotaciones, para evitar un import circular.
+
+**Ahora.**
+- `resolver(comprador, ofrece)` solo describe la operación: devuelve una `Venta` o un `Intercambio` y no modifica nada.
+- `Mercado.aceptar_publicacion` ejecuta lo que devuelve con `_ejecutar_transaccion`. Todo sigue dentro de `_ejecutar`, así que la atomicidad y el historial no cambian.
+- Para que `Mercado` ejecute cualquier operación sin preguntar su tipo, se agregó la clase abstracta `Transaccion` (`participantes()`, `ejemplares()`, `aplicar()`). `Venta` e `Intercambio` la implementan y se llevaron las reglas que antes estaban en `Mercado`.
+- `Venta` ahora lleva al `comprador`, así que `Mercado.comprar_carta` recibe solo la venta.
+- `_ejecutar_transaccion` verifica que los participantes estén registrados (lo único que sabe `Mercado`), aplica la transacción y retira del foro los ejemplares que cambiaron de dueño.
+
+**Resultado.**
+- `foro.py` ya no importa a `Mercado` y desapareció el import circular.
+- La dependencia va en un solo sentido: `Mercado` usa `Foro`, `Publicacion` y `Transaccion`.
+- `resolver` se prueba sin armar un `Mercado`.
+
+**Alternativas descartadas.**
+- Dejar que `resolver` llame al mercado: obliga a una dependencia circular y a usar métodos ajenos.
+- Que `Mercado` decida con `if`/`isinstance` cómo ejecutar lo que devuelve `resolver`: vuelve a preguntar el tipo. Por eso existe `Transaccion.aplicar`. 
+
+**Tests.**
+- `test_r15_resolver_venta_devuelve_la_operacion_sin_mercado` y `test_r15_resolver_intercambio_devuelve_la_operacion_sin_mercado`: comprueban que devuelven el dato correcto y que nadie cambió de dueño.
+- `test_r15_el_foro_no_depende_del_mercado`: comprueba que `foro.py` no importa `mercado.py`.
+
+## Decisiones abiertas 
+- `Subasta.resolver` lanza `ErrorMercado`, porque una subasta no se acepta, se cierra con `Mercado.cerrar_subasta`. Es una subclase que no cumple lo que promete `Publicacion`. Alternativa: sacar `resolver` de `Publicacion` y dejarlo solo en las publicaciones que se pueden aceptar.
+- `Venta.aplicar` e `Intercambio.aplicar` llaman a métodos con guion bajo de `Jugador` (`_cobrar`, `_quitar`...). En Python no hay privado real: el guion bajo marca uso interno del paquete `juego`.
+
+## Efecto en otras secciones
+- `REGLAS.md`: R3 ahora la protege `Venta.aplicar` y R15 incluye `precio_de_referencia` y `Transaccion.aplicar`.
+- Ya no existen `hacer_venta` y `hacer_intercambio` en `Mercado`.
 
 

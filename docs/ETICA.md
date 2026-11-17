@@ -1,4 +1,4 @@
-primera version
+segunda version
 
 que debe tener en general
 ETICA.md es una página con cuatro partes: los datos que maneja la aplicación, un riesgo ético concreto junto con el cambio de diseño que lo mitiga, un marco legal o una licencia citados después de haberlos leído, y el uso de IA realizado.
@@ -17,15 +17,16 @@ ETICA.md debe analizar la transparencia de las probabilidades de los sobres, la 
 
 ## 1. Datos que maneja la aplicación
 
-La aplicación maneja exclusivamente los datos estrictamente necesarios para el funcionamiento de la simulación del juego y su economía interna:
+Desde el punto de vista ético y de protección de la privacidad (Ley N° 18.331), la aplicación se enfoca exclusivamente en los **datos personales y de actividad** de los jugadores:
 
-- **Identificación:** `nombre_jugador` y `nickname` (identificador único dentro del juego).
-- **Estado de juego:** saldo de `polen` (moneda virtual cerrada), lista de `Ejemplar` (cada uno con un identificador numérico único que garantiza trazabilidad), colección de cartas obtenidas, sobres en inventario e insignias anuales.
-- **Actividad en el mercado:** publicaciones en el foro (ventas, trueques, subastas), ofertas vigentes e historial de transacciones realizadas.
+- **Identificadores personales:** `nombre_jugador` (nombre de la persona) y `nickname` (alias público obligatorio dentro del sistema).
+- **Datos patrimoniales y de actividad en el juego:** saldo en `polen` (moneda virtual), colección de cartas (`Ejemplar`, con identificadores únicos asignados al usuario), inventario de sobres comprados, insignias obtenidas, ofertas monetarias realizadas, publicaciones en el foro y registros de transacciones previas.
 
-### Principio de minimización de datos
+### Principio de minimización de datos (Art. 8, Ley 18.331)
 
-En la versión inicial se había contemplado almacenar el `email` del jugador. Sin embargo, se eliminó del modelo `Jugador` al constatar que el sistema no realiza autenticación remota, recuperación de cuenta ni envíos de notificaciones. Mantenerlo implicaba recolectar un dato sensible sin utilidad funcional (Ley 18.331, art. 8). Del mismo modo, la aplicación **no** solicita contraseñas, geolocalización, datos biométricos ni información financiera o de medios de pago reales.
+- **Eliminación del correo electrónico (`email`):** En el diseño original se contemplaba almacenar el email del jugador. Sin embargo, se eliminó de la clase `Jugador` al constatar que el sistema no realiza autenticación remota, recuperación de cuenta ni comunicaciones externas. Retenerlo violaba el principio de finalidad (art. 8), ya que se estaría guardando un dato identificatorio sensible sin un propósito funcional real.
+- **Datos no recolectados:** La aplicación prescinde por completo de contraseñas, datos biométricos, geolocalización, identificadores de red (IP) e información financiera o bancaria, operando con el mínimo de datos indispensable para jugar.
+- **Garantía de supresión:** Todos los datos anteriores son los que se eliminan de forma irreversible al invocar el derecho de supresión (`borrar_jugador`).
 
 ---
 
@@ -35,7 +36,7 @@ En la versión inicial se había contemplado almacenar el `email` del jugador. S
 
 El juego incorpora la apertura de sobres de cartas con distribución aleatoria de ejemplares. En la industria de los videojuegos, las cajas de botín (_loot boxes_) han sido ampliamente cuestionadas por psicólogos y reguladores internacionales debido a su funcionamiento basado en esquemas de **refuerzo de razón variable**, los cuales reproducen los patrones conductuales de las máquinas tragamonedas y generan riesgo de adicción o conductas compulsivas, con un impacto especialmente lesivo en niñas, niños y adolescentes.
 
-A esto se suma la distinción legal respecto a las **apuestas y juegos de azar**: en el ordenamiento uruguayo, las apuestas con dinero real están reguladas y monopolizadas por el Estado (Dirección Nacional de Loterías y Quinielas). Si un sistema permite adquirir ítems aleatorios o monetizarlos hacia el exterior, se desnaturaliza el entretenimiento y se incurre en una práctica de juego de azar encubierta.
+A esto se suma la distinción legal respecto a las **apuestas y juegos de azar**: en el ordenamiento uruguayo, las apuestas con dinero real están reguladas y monopolizadas por el Estado (Dirección Nacional de Loterías y Quinielas). Si un sistema permite adquirir ítems aleatorios con dinero real o monetizarlos hacia el exterior, se desnaturaliza el entretenimiento y se incurre en una práctica de juego de azar encubierta.
 
 ### Cambios de diseño y mitigaciones implementadas
 
@@ -75,13 +76,13 @@ Al implementar `Mercado.borrar_jugador(jugador)` (protegido por la regla **R16**
 
 ## 4. Uso de Inteligencia Artificial realizado
 
-Se incorporó herramientas de Inteligencia Artificial generativa bajo una metodología de asistencia supervisada y crítica, documentada en detalle en la bitácora del proyecto:
+Se incorporó herramientas de Inteligencia Artificial generativa bajo una metodología de asistencia supervisada, documentada en detalle en la bitácora del proyecto (BITACORA_IA.md):
 
-1. **Diseño conceptual y modelado inicial (Humano):**  
+1. **Diseño conceptual y modelado inicial:**  
    La concepción temática del mercado de plantas, la dinámica de estaciones y la primera iteración del diagrama UML fueron elaboradas de manera autónoma por el equipo. La IA se utilizó con posterioridad para contrastar decisiones de diseño y validar posibles omisiones en las relaciones entre entidades.
 2. **Calibración de la economía y detección de alucinaciones:**  
-   Se consultó a la IA para calcular probabilidades equilibradas en los sobres y relaciones de costos. En este proceso se identificaron errores y asunciones incorrectas del modelo (por ejemplo, la IA asumió una comisión arbitraria del 40% en ventas al sistema que contradecía la especificación del equipo). La discrepancia fue corregida manualmente mediante pruebas unitarias.
+   Se consultó a la IA para calcular probabilidades equilibradas en los sobres y relaciones de costos. En este proceso se identificaron errores y asunciones incorrectas del modelo (por ejemplo, la IA asumió una comisión arbitraria del 40% en ventas al sistema que contradecía la especificación del equipo). La discrepancia fue corregida manualmente.
 3. **Refactorización y adecuación pedagógica:**  
-   El código generado inicialmente por la IA incluía construcciones avanzadas o ajenas al alcance del curso (como `frozenset`, `@property`, `@staticmethod` o `__post_init__`). El equipo solicitó reescribir y simplificar dichas secciones para garantizar un código comprensible, legible y mantenible con las herramientas vistas en clase.
-4. **Desacople arquitectónico (Cambio docente):**  
-   Ante el requerimiento de cambio en el diseño, se empleó la IA como apoyo consultivo para comprender en profundidad el desacople entre `Foro` y `Mercado`, logrando que las publicaciones devuelvan objetos `Transaccion` polimórficos (`precio_de_referencia` y `resolver`) en lugar de invocar métodos privados del orquestador.
+   El código generado inicialmente por la IA incluía construcciones avanzadas o ajenas al alcance del curso y sobrepasaba la limitacion impuesta en la consigna (como `frozenset`, `@property`, `@staticmethod` o `__post_init__`). Se solicitó reescribir y simplificar dichas secciones para garantizar un código mas legible, mantenible y comprensible para todo el equipo.
+4. **Cambio de Diseño (Cambio docente):**  
+   Ante el requerimiento de cambio en el diseño, se empleó la IA como apoyo para comprender el desacople entre `Foro` y `Mercado`, logrando que las publicaciones devuelvan objetos `Transaccion` polimórficos (`precio_de_referencia` y `resolver`) en lugar de invocar métodos privados.

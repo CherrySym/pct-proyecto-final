@@ -38,6 +38,14 @@ class Publicacion(ABC):
         """Borra los datos de un jugador que la publicación tenga guardados.
         Por defecto no hay ninguno; Subasta lo redefine porque guarda ofertas."""
 
+    def _capturar(self):
+        """Foto del estado que puede cambiar adentro de la publicación.
+        Por defecto no hay nada que guardar; Subasta lo redefine porque guarda ofertas."""
+        return None
+
+    def _restaurar(self, estado) -> None:
+        """Vuelve al estado de _capturar. Por defecto no hay nada que restaurar."""
+
     @abstractmethod
     def precio_de_referencia(self) -> Optional[int]:
         """El precio con el que se compara la publicación, o None si no tiene."""
@@ -46,6 +54,11 @@ class Publicacion(ABC):
     def resolver(self, comprador: Jugador, ofrece: Sequence[Ejemplar]) -> Transaccion:
         """Describe la operación que ocurre si `comprador` acepta la publicación.
         No modifica nada: devuelve el dato y el Mercado la ejecuta."""
+
+    @abstractmethod
+    def descripcion(self) -> str:
+        """Texto con el tipo de publicación y sus datos propios. No imprime:
+        quien la muestra decide dónde (polimorfismo: el menú no pregunta el tipo)."""
 
 
 class PublicacionVenta(Publicacion):
@@ -66,6 +79,9 @@ class PublicacionVenta(Publicacion):
     def resolver(self, comprador, ofrece) -> Venta:
         return Venta(self.autor, comprador, self.ejemplar, self.precio_pedido)
 
+    def descripcion(self) -> str:
+        return f"Venta: {self.precio_pedido} de polen"
+
 
 class PublicacionIntercambio(Publicacion):
     def __init__(self, autor: Jugador, ejemplar: Ejemplar, busca: str = ""):
@@ -77,6 +93,10 @@ class PublicacionIntercambio(Publicacion):
 
     def resolver(self, comprador, ofrece) -> Intercambio:
         return Intercambio(self.autor, comprador, (self.ejemplar,), tuple(ofrece))
+
+    def descripcion(self) -> str:
+        busca = f", busca: {self.busca}" if self.busca else ""
+        return f"Intercambio: vale {reglas.valor_intercambio(self.ejemplar.carta.rareza)}{busca}"
 
 
 @dataclass
@@ -113,6 +133,11 @@ class Subasta(Publicacion):
     def resolver(self, comprador, ofrece):
         raise ErrorMercado("Las subastas no se aceptan: se cierran con cerrar_subasta")
 
+    def descripcion(self) -> str:
+        mejor = max((o.monto for o in self._ofertas), default=None)
+        oferta = f"mejor oferta {mejor}" if mejor is not None else "sin ofertas"
+        return f"Subasta: mínimo {self.precio_minimo}, {oferta}, cierra {self.cierre:%d/%m}"
+
     def ofertar(self, jugador: Jugador, monto: int, fecha: date) -> Oferta:
         if not reglas.es_monto(monto):
             raise ErrorMercado(f"Monto inválido: {monto!r}")
@@ -131,6 +156,12 @@ class Subasta(Publicacion):
 
     def _olvidar_jugador(self, jugador: Jugador) -> None:
         self._ofertas = [o for o in self._ofertas if o.jugador is not jugador]
+
+    def _capturar(self) -> list:
+        return list(self._ofertas)
+
+    def _restaurar(self, ofertas: list) -> None:
+        self._ofertas = list(ofertas)
 
     def cerrar(self, fecha: date) -> tuple:
         """Devuelve las ofertas de mayor a menor. No mueve polen: eso lo hace el Mercado."""
@@ -168,7 +199,11 @@ class Foro:
         self._publicaciones = [p for p in self._publicaciones if p.ejemplar != ejemplar]
 
     def _capturar(self) -> list:
-        return list(self._publicaciones)
+        """Lista de pares (publicación, su estado). Cada publicación sabe qué
+        guardar de sí misma (polimorfismo): una subasta guarda sus ofertas."""
+        return [(p, p._capturar()) for p in self._publicaciones]
 
-    def _restaurar(self, publicaciones: list) -> None:
-        self._publicaciones = list(publicaciones)
+    def _restaurar(self, estado: list) -> None:
+        self._publicaciones = [p for p, _ in estado]
+        for publicacion, estado_publicacion in estado:
+            publicacion._restaurar(estado_publicacion)

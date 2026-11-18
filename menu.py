@@ -69,16 +69,8 @@ def ejemplar_texto(ejemplar) -> str:
 
 
 def publicacion_texto(pub) -> str:
-    """Cada tipo de publicación se muestra a su manera."""
-    base = f"{ejemplar_texto(pub.ejemplar)} de {pub.autor.nickname}"
-    if isinstance(pub, Subasta):
-        mejor = max((o.monto for o in pub.ofertas()), default=None)
-        oferta = f"mejor oferta {mejor}" if mejor is not None else "sin ofertas"
-        return f"[Subasta] {base} - mínimo {pub.precio_minimo}, {oferta}, cierra {pub.cierre:%d/%m}"
-    if isinstance(pub, PublicacionIntercambio):
-        busca = f" - busca: {pub.busca}" if pub.busca else ""
-        return f"[Intercambio] {base} (vale {reglas.valor_intercambio(pub.ejemplar.carta.rareza)}){busca}"
-    return f"[Venta] {base} - {pub.precio_de_referencia()} de polen"
+    """Cada tipo de publicación se describe a su manera (polimorfismo)."""
+    return f"{ejemplar_texto(pub.ejemplar)} de {pub.autor.nickname} - {pub.descripcion()}"
 
 
 # ---------------------------------------------------------------- la partida
@@ -247,7 +239,7 @@ def aceptar_intercambio(p: Partida) -> None:
 def ofertar_en_subasta(p: Partida) -> None:
     subasta = elegir(ajenas(p, Subasta), publicacion_texto)
     monto = pedir_numero("¿Cuánto ofertás?: ", minimo=1)
-    subasta.ofertar(p.actual, monto, p.fecha)
+    p.mercado.ofertar(subasta, p.actual, monto, p.fecha)
     print("Oferta registrada. El polen se cobra recién cuando cierra la subasta.")
 
 
@@ -332,6 +324,28 @@ def avanzar_dia(p: Partida) -> None:
     print(f"Ahora es {p.fecha:%d/%m/%Y} ({p.estacion().value}).")
 
 
+# ---------------------------------------------------------------- partida de demostración
+
+def preparar_demo(p: Partida) -> None:
+    """Carga el foro para la demo usando solo operaciones del Mercado (nada se
+    saltea las reglas), así que la preparación también queda en el historial.
+    Con la semilla 42 las cartas salen siempre iguales (R5)."""
+    beto = p.mercado.jugadores()[1]
+    sobre = p.mercado.comprar_sobre(beto, SOBRE_COMUN)
+    cartas = p.mercado.abrir_sobre(beto, sobre, p.azar)
+    publicables = [e for e in cartas if e.carta.intercambiable]
+    if len(publicables) < 3:
+        raise ErrorMercado("El sobre no trajo tres cartas publicables")
+    venta, intercambio, subasta = publicables[:3]
+    p.mercado.publicar(PublicacionVenta(beto, venta, reglas.precio(venta.carta, p.estacion())))
+    p.mercado.publicar(PublicacionIntercambio(beto, intercambio, "cualquier carta que me falte"))
+    p.mercado.publicar(Subasta(beto, subasta, reglas.valor_base(subasta.carta.rareza),
+                               p.fecha + timedelta(days=3)))
+    print(f"Partida de demostración: {beto.nickname} abrió un sobre común y publicó en el foro:")
+    for pub in p.mercado.foro().publicaciones():
+        print("  " + publicacion_texto(pub))
+
+
 # ---------------------------------------------------------------- menú
 
 SECCIONES = [
@@ -388,6 +402,13 @@ def main() -> None:
     except Salir:
         return
     partida = Partida(semilla)
+    try:
+        if pedir("¿Cargar partida de demostración? (s/n): ").lower() == "s":
+            preparar_demo(partida)
+    except ErrorMercado as error:
+        print("No se pudo cargar la demostración:", error)
+    except Salir:
+        return
 
     while True:
         mostrar_menu(partida)

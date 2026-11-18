@@ -50,7 +50,7 @@ class Jugador:
     def coleccion_completa(self, edicion: Edicion) -> bool:
         return not cartas_faltantes(self._coleccion, edicion)
 
-    def abrir_sobre(self, sobre: Sobre, azar: Azar) -> list:
+    def _abrir_sobre(self, sobre: Sobre, azar: Azar) -> list:
         """Usar Mercado.abrir_sobre para que quede en el historial."""
         if sobre not in self._sobres:
             raise ErrorMercado("El jugador no tiene ese sobre")

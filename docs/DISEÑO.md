@@ -42,7 +42,7 @@ Los métodos para obtener cartas son:
 
 Las monedas del juego se llaman polen. Se utilizan para comprar sobres y cartas a otros jugadores.
 
-También existen recompensas diarias para los jugadores que tienen menos de 50 de polen, con el objetivo de ayudarlos a reintegrarse al juego. Para evitar que esta recompensa se convierta en una forma de generar polen ilimitadamente, se establece un límite de una recompensa cada 24 horas, siempre que el jugador tenga menos de 50 de polen al momento de reclamarla. La recompensa será de 10 polen y no se acumulará si el jugador no la reclama.
+También existen recompensas diarias para los jugadores que tienen menos de 50 de polen, con el objetivo de ayudarlos a reintegrarse al juego. Para evitar que esta recompensa se convierta en una forma de generar polen ilimitadamente, se establece un límite de una recompensa por día, siempre que el jugador tenga menos de 50 de polen al momento de reclamarla. La recompensa será de 20 polen y no se acumulará si el jugador no la reclama.
 
 # Mercado e intercambios
 
@@ -183,7 +183,7 @@ No había nada que registre lo que paso, se implementó Operacion, Mercado.histo
 Habíamos puesto cantidad_monedas, pasamos a polen con la restricción de polen >= 0, ya que es una moneda ficticia.
 No existía el reinicio anual, agregamos Edicion como año, Insignia y reiniciar_anio. Es lo único que sobrevive al reinicio.
 Sin estaciones, agregamos el enum Estacion y la relación con Carta. Esto es porque el valor de la Carta cambia según la época.
-No había foro ni subastas, se agregó Foro, Publicacion, TipoPublicacion, Subasta y Oferta. La subasta es la única herencia en el UML ya que sí se comporta distinto.
+No había foro ni subastas. Se agregó Foro, Publicacion (abstracta), Subasta y Oferta. En la primera versión el tipo de publicación era un atributo con la enumeración TipoPublicacion, y Subasta era la única subclase. Con el cambio de requisito, venta e intercambio también pasaron a ser subclases de Publicacion (PublicacionVenta y PublicacionIntercambio), porque se comportan distinto. Cada una responde a su manera validar, precio_de_referencia y resolver. Además hay herencia en Transaccion (Venta e Intercambio) y en la interfaz Azar (AzarReal y AzarFijo).
 Había un “mínimo tres” en Intercambio, pasamos a tener valor_intercambio e intercambio_balanceado que es una regla de valor, no de cantidad.
 No teniamos precio mínimo, agregamos venta_valida en ReglasEconomia que hace que no se venda por debajo del valor base.
 No se habían definido las relaciones claramente, agregamos dependencias punteadas, multiplicidades, composición, agregación y visibilidad como privado o público. Esto sirve para que al momento de leer el diagrama se entienda qué usa a qué.
@@ -193,7 +193,7 @@ A su vez, hay un par de cosas que desaparecieron. valor:string, cantidad_cartas,
 El UML muestra la estructura: clases, atributos, relaciones y los métodos que definen el comportamiento de cada clase. Quedaron afuera los detalles de implementación y las funciones puras de módulo. Esta sección los explica para poder comparar el diagrama con el código.
 
 ### Convenciones de notación
-- Los atributos llevan visibilidad (`-` privado, `+` público) y los métodos no. En el código los métodos con guion bajo son de uso interno por convención. En el UML aparecen sin signo `ejecutar_transaccion`, `sortear_carta`, `olvidar_jugador` y, en `Jugador`, `cobrar`, `acreditar`, `agregar` y `quitar`, que solo usa `Mercado`.
+- Los atributos llevan visibilidad (`-` privado, `+` público) y los métodos no. En el código los métodos con guion bajo son de uso interno por convención. En el UML aparecen sin signo `ejecutar_transaccion`, `sortear_carta`, `olvidar_jugador` y, en `Jugador`, `abrir_sobre`, `cobrar`, `acreditar`, `agregar` y `quitar`, que solo usa `Mercado`.
 - Tipos: `lista de X` es `list`, `dicc` es `dict`, `fecha` es `datetime.date` e `int | None` es `Optional[int]`.
 - `Azar` se dibuja como «interface», pero en Python es una clase abstracta (`ABC`).
 - `ReglasEconomia` y `Analisis` se dibujan como clases «utility» porque UML no tiene funciones sueltas. En el código son los módulos `reglas.py` y `analisis.py`: funciones puras, sin estado y sin clase.
@@ -209,7 +209,8 @@ Quedó sin dibujar `-ejecutar(tipo, datos, accion)`, junto con `-verificar`, `-c
 ### Métodos y atributos que no se dibujaron
 - Getters que devuelven tuplas, para leer sin poder modificar: `Mercado.historial()`, `edicion()`, `foro()` y `jugadores()`; `Foro.publicaciones()`; `Subasta.ofertas()`.
 - Auxiliares de `Jugador`: `agregar_sobre`, `agregar_insignia`, `marcar_recompensa`, `reiniciar`, `capturar` y `restaurar`, y el atributo `-ultima_recompensa`.
-- Auxiliares de `Foro`: `retirar_ejemplar`, `capturar` y `restaurar`.
+- Auxiliares de `Foro`: `retirar_ejemplar`, `capturar` y `restaurar`. La foto del foro es una lista de pares (publicación, estado de esa publicación).
+- Auxiliares de `Publicacion`: `capturar` y `restaurar`. Por defecto no guardan nada; `Subasta` los redefine para guardar y devolver su lista de ofertas. Así, `deshacer` también vuelve atrás una oferta, y el `Foro` no tiene que preguntar de qué tipo es cada publicación (polimorfismo, igual que `olvidar_jugador`).
 
 ### Funciones puras de reglas.py (ReglasEconomia)
 - `precio(carta, estacion) = round(valor_base(rareza) × multiplicador)`. El multiplicador es 1.5 si la estación de la carta coincide con la actual y 1.0 si no. El precio se calcula y no se guarda.
@@ -277,7 +278,7 @@ El profesor pidió dos cambios de diseño sobre el núcleo (`Cambio.md`):
 
 `precio_hasta` llama a `pub.precio_de_referencia()` y ya no pregunta el tipo. Si aparece un tipo de publicación nuevo, no hay que tocar `precio_hasta`.
 
-**Alternativas descartadas.** Mantener `getattr` o usar `isinstance` dentro de `precio_hasta`: las dos siguen preguntando el tipo y obligan a modificar la función por cada tipo nuevo. [confirmar]
+**Alternativas descartadas.** Mantener `getattr` o usar `isinstance` dentro de `precio_hasta`: las dos siguen preguntando el tipo y obligan a modificar la función por cada tipo nuevo. 
 
 **Test.** `test_r15_la_busqueda_por_precio_incluye_subastas`: con una venta barata, una subasta, un intercambio y una venta cara, `precio_hasta(20)` devuelve la venta barata y la subasta.
 
@@ -307,6 +308,16 @@ El profesor pidió dos cambios de diseño sobre el núcleo (`Cambio.md`):
 ## Decisiones abiertas 
 - `Subasta.resolver` lanza `ErrorMercado`, porque una subasta no se acepta, se cierra con `Mercado.cerrar_subasta`. Es una subclase que no cumple lo que promete `Publicacion`. Alternativa: sacar `resolver` de `Publicacion` y dejarlo solo en las publicaciones que se pueden aceptar.
 - `Venta.aplicar` e `Intercambio.aplicar` llaman a métodos con guion bajo de `Jugador` (`_cobrar`, `_quitar`...). En Python no hay privado real: el guion bajo marca uso interno del paquete `juego`.
+
+## Últimos arreglos
+
+Después del cambio del profesor revisamos el diseño y encontramos operaciones que todavía podían saltearse al `Mercado`. Las arreglamos para que se cumpla lo que pide el proyecto: que lo ocurrido sea siempre verificable y que ciertos errores sean imposibles.
+
+- **Ofertar en una subasta.** Antes se llamaba directo a `Subasta.ofertar`: la oferta no quedaba en el historial, no se podía deshacer y podía ofertar un jugador no registrado. Ahora pasa por `Mercado.ofertar`, que verifica al jugador y ejecuta la oferta de forma atómica. Para que `deshacer` funcione, cada publicación guarda su propio estado (`capturar` / `restaurar`); la subasta guarda sus ofertas. Tests: `test_r6_deshacer_una_oferta_la_saca_de_la_subasta` y `test_r14_un_jugador_no_registrado_no_puede_ofertar`.
+- **Nickname único.** Antes el menú lo controlaba, pero el `Mercado` no, y el historial guarda nicknames, así que con dos iguales no se sabía quién hizo qué. Ahora lo controla `Mercado.registrar_jugador`. Test: `test_r14_no_se_registran_dos_jugadores_con_el_mismo_nickname`.
+- **Borrar un jugador.** Antes, si se volvía a registrar a un jugador borrado, recuperaba sus cartas y recibía otros 100 de polen. Ahora `borrar_jugador` también vacía sus datos y arranca de cero. Test: `test_r16_un_jugador_borrado_y_vuelto_a_registrar_arranca_de_cero`.
+- **Mostrar una publicación.** El menú usaba `isinstance` para saber cómo mostrar cada tipo, que es lo mismo que el profesor señaló en el cambio 1. Ahora cada publicación responde `descripcion()` a su manera: devuelve un texto y no imprime. Test: `test_r15_cada_publicacion_se_describe_a_su_manera`.
+- **Abrir un sobre.** `Jugador.abrir_sobre` era público y se podía usar sin pasar por el `Mercado`. Ahora es `_abrir_sobre`, de uso interno.
 
 ## Efecto en otras secciones
 - `REGLAS.md`: R3 ahora la protege `Venta.aplicar` y R15 incluye `precio_de_referencia` y `Transaccion.aplicar`.

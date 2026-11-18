@@ -50,7 +50,7 @@ def repetidos(ejemplares: Iterable[Ejemplar]) -> tuple:
         if clave in vistos:
             return vistos, sobran + (ejemplar,)
         return vistos | {clave}, sobran
-    _, sobran = reduce(acumular, ejemplares, (frozenset(), ()))
+    _, sobran = reduce(acumular, ejemplares, (set(), ()))
     return sobran
 
 

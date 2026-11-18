@@ -108,6 +108,8 @@ class Mercado:
                 raise ErrorMercado(f"{jugador!r} no es un Jugador")
             if jugador in self._jugadores:
                 raise ErrorMercado("El jugador ya está registrado")
+            if any(j.nickname == jugador.nickname for j in self._jugadores):
+                raise ErrorMercado("Ese nickname ya está en uso")
             self._jugadores.append(jugador)
             jugador._acreditar(POLEN_INICIAL)
         self._ejecutar("registrar_jugador", lambda: {"jugador": jugador.nickname}, accion)
@@ -125,7 +127,7 @@ class Mercado:
     def abrir_sobre(self, jugador: Jugador, sobre: Sobre, azar: Azar) -> list:
         def accion():
             self._verificar(jugador)
-            return jugador.abrir_sobre(sobre, azar)
+            return jugador._abrir_sobre(sobre, azar)
         return self._ejecutar("abrir_sobre",
                               lambda: {"jugador": jugador.nickname, "sobre": sobre.id_sobre}, accion)
 
@@ -179,6 +181,16 @@ class Mercado:
         self._ejecutar("aceptar_publicacion",
                        lambda: {"autor": publicacion.autor.nickname, "comprador": comprador.nickname,
                         "ejemplar": publicacion.ejemplar.id_ejemplar}, accion)
+
+    def ofertar(self, subasta: Subasta, jugador: Jugador, monto: int, fecha: date) -> Oferta:
+        def accion():
+            self._verificar(jugador)
+            if subasta not in self._foro.publicaciones():
+                raise ErrorMercado("Esa subasta no está en el foro")
+            return subasta.ofertar(jugador, monto, fecha)
+        return self._ejecutar("ofertar",
+                              lambda: {"jugador": jugador.nickname, "ejemplar": subasta.ejemplar.id_ejemplar,
+                               "monto": monto, "fecha": fecha.isoformat()}, accion)
 
     def cerrar_subasta(self, subasta: Subasta, fecha: date) -> Optional[Oferta]:
         """Gana la oferta más alta cuyo jugador todavía tenga el polen."""
@@ -240,10 +252,14 @@ class Mercado:
         la lista de jugadores, el foro y el historial (cada operación guarda una foto
         del estado). Por eso el historial se vacía y lo anterior ya no se puede
         deshacer: decidimos que la supresión pesa más que el deshacer.
-        Su polen y sus cartas salen de circulación."""
+        Su polen y sus cartas salen de circulación: el objeto queda vacío, así que
+        si se lo vuelve a registrar arranca de cero."""
         self._verificar(jugador)
         self._jugadores.remove(jugador)
-        self._foro._restaurar([p for p in self._foro.publicaciones() if p.autor is not jugador])
+        jugador._restaurar({"polen": 0, "coleccion": [], "sobres": [], "insignias": [],
+                            "ultima_recompensa": None})
+        self._foro._restaurar([(p, p._capturar()) for p in self._foro.publicaciones()
+                               if p.autor is not jugador])
         for publicacion in self._foro.publicaciones():
             publicacion._olvidar_jugador(jugador)  # polimorfismo: cada tipo sabe qué borrar
         self._historial.clear()

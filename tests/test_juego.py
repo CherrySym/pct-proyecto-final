@@ -165,6 +165,17 @@ def test_r6_deshacer_una_venta(mercado, ana, beto, edicion):
     assert foto(mercado) == antes
 
 
+def test_r6_deshacer_una_oferta_la_saca_de_la_subasta(mercado, ana, beto, edicion):
+    subasta = Subasta(ana, dar(ana, edicion.cartas[2], 1001), 15, date(2026, 12, 1))
+    mercado.publicar(subasta)
+    antes = len(mercado.historial())
+    mercado.ofertar(subasta, beto, 30, HOY)
+    assert len(mercado.historial()) == antes + 1
+    assert mercado.historial()[-1].tipo == "ofertar"
+    mercado.deshacer()
+    assert subasta.ofertas() == ()
+
+
 def test_r6_no_hay_nada_para_deshacer_al_empezar(mercado):
     with pytest.raises(ErrorMercado):
         mercado.deshacer()
@@ -337,6 +348,24 @@ def test_r14_registrar_algo_que_no_es_jugador(mercado, cosa):
     assert mercado.jugadores() == () and mercado.historial() == ()
 
 
+def test_r14_un_jugador_no_registrado_no_puede_ofertar(mercado, ana, edicion):
+    subasta = Subasta(ana, dar(ana, edicion.cartas[2], 1001), 15, date(2026, 12, 1))
+    mercado.publicar(subasta)
+    intrusa = Jugador("Intrusa", "intrusa")
+    intrusa._acreditar(100)                            # tiene polen: lo único que falla es el registro
+    with pytest.raises(ErrorMercado):
+        mercado.ofertar(subasta, intrusa, 30, HOY)
+    assert subasta.ofertas() == ()
+
+
+def test_r14_no_se_registran_dos_jugadores_con_el_mismo_nickname(mercado, ana):
+    otra = Jugador("Otra Ana", "ana")
+    with pytest.raises(ErrorMercado):
+        mercado.registrar_jugador(otra)
+    assert mercado.jugadores() == (ana,)
+    assert otra.polen() == 0
+
+
 # ---------------------------------------------------------------- R15: polimorfismo de publicaciones
 
 def test_r15_intercambio_por_el_foro(mercado, ana, beto, edicion):
@@ -399,6 +428,19 @@ def test_r15_resolver_intercambio_devuelve_la_operacion_sin_mercado(edicion):
     assert ana.tiene(mia) and beto.tiene(suya)
 
 
+def test_r15_cada_publicacion_se_describe_a_su_manera(ana, edicion):
+    """descripcion() devuelve un texto (no imprime) y cada tipo dice el suyo."""
+    venta = PublicacionVenta(ana, dar(ana, edicion.cartas[0], 1001), 10)
+    intercambio = PublicacionIntercambio(ana, dar(ana, edicion.cartas[1], 1002), busca="una rara")
+    subasta = Subasta(ana, dar(ana, edicion.cartas[2], 1003), 15, date(2026, 12, 1))
+    textos = [p.descripcion() for p in (venta, intercambio, subasta)]
+    assert all(isinstance(t, str) for t in textos)
+    assert len(set(textos)) == 3
+    assert textos[0].startswith("Venta") and "10" in textos[0]
+    assert textos[1].startswith("Intercambio") and "una rara" in textos[1]
+    assert textos[2].startswith("Subasta") and "15" in textos[2]
+
+
 def test_r15_el_foro_no_depende_del_mercado():
     """foro.py no importa mercado.py: no hay import circular."""
     import juego.foro
@@ -421,6 +463,15 @@ def test_r16_borrar_jugador_lo_quita_de_todos_lados(mercado, ana, beto, edicion)
     assert all(p.autor is not ana for p in mercado.foro().publicaciones())
     assert all(o.jugador is not ana for o in subasta.ofertas())
     assert mercado.historial() == ()                   # las fotos del estado también la contenían
+
+
+def test_r16_un_jugador_borrado_y_vuelto_a_registrar_arranca_de_cero(mercado, ana, edicion):
+    mercado.comprar_sobre(ana, SOBRE_COMUN)
+    dar(ana, edicion.cartas[2], 1001)
+    mercado.borrar_jugador(ana)
+    mercado.registrar_jugador(ana)
+    assert ana.polen() == POLEN_INICIAL
+    assert ana.coleccion() == () and ana.sobres() == ()
 
 
 # ---------------------------------------------------------------- R17: el historial se puede verificar afuera del programa

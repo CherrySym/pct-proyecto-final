@@ -83,10 +83,16 @@ def main() -> None:
     print(f"Registro guardado en {ARCHIVO_REGISTRO}:",
           analisis.contar_por_tipo(leer_registro(ARCHIVO_REGISTRO)))
 
-    # Simulación perezosa: cuántos sobres hacen falta para completar la edición
+    # Estación de hoy (según la fecha real)
     estacion = reglas.estacion_de(hoy)
     print(f"Estación de hoy: {estacion.value}")
-    
+
+    # Simulación perezosa: frecuencia de rarezas en 1000 sobres simulados
+    frecuencias = analisis.frecuencia_rarezas(SOBRE_COMUN, edicion, AzarReal(semilla=7), 1000)
+    print("Frecuencia de rarezas en 1000 sobres comunes simulados:")
+    for rareza in Rareza:
+        if rareza in frecuencias:
+            print(f"  {rareza.value:<11} {frecuencias[rareza]:>7.1%}")
 
 
 if __name__ == "__main__":

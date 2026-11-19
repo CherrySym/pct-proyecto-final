@@ -1,8 +1,3 @@
-### Datos personales (Ley 18.331)
-
-- Se eliminó `email` de `Jugador`: no tenía finalidad (arts. 7 y 8). Esto cambia respecto del diseño original.
-- `borrar_jugador` aplica el derecho de supresión (art. 15). Saca al jugador de la lista de jugadores, retira sus publicaciones y sus ofertas en subastas, vacía sus propios datos (polen, cartas, sobres e insignias) y vacía el historial, porque cada operación guarda una foto del estado. Si se lo vuelve a registrar, arranca de cero, como un jugador nuevo. Se decidió que la supresión pesa más que el deshacer, y por eso lo anterior ya no se puede deshacer.
-
 # Análisis Ético
 
 ## 1. Datos que maneja la aplicación
@@ -65,7 +60,7 @@ Al implementar `Mercado.borrar_jugador(jugador)` (protegido por la regla **R16**
 
 - Se remueve al jugador del registro activo.
 - Se retiran todas sus publicaciones y ofertas en el foro mediante polimorfismo (`_olvidar_jugador`).
-- Sus ejemplares y polen se retiran de circulación.
+- Se vacían sus propios datos (polen, cartas, sobres e insignias), que salen de circulación. Si se lo vuelve a registrar, arranca de cero, como un jugador nuevo.
 - **Se vacía por completo el historial de operaciones (`_historial.clear()`):** Dado que las instantáneas previas contenían copias del estado del jugador borrado, conservarlas violaría el derecho de supresión. Se tomó la decisión explícita de que **el derecho a la privacidad y eliminación de datos prevalece sobre la trazabilidad técnica de la función deshacer**.
 
 ---
